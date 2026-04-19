@@ -92,7 +92,12 @@ export class BranchManager {
     const previousId = this.activeBranchId
     this.activeBranchId = id
 
-    // 更新分支的 lastActiveAt
+    // 旧分支设为 idle
+    if (previousId && previousId !== id) {
+      await this.storage.branches.update(previousId, { status: 'idle' })
+    }
+
+    // 新分支设为 active
     await this.storage.branches.update(id, { status: 'active' })
 
     if (previousId && previousId !== id) {

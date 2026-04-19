@@ -38,31 +38,48 @@ class MockLLMAdapter implements LLMAdapter {
 
   private generateReply(input: string): string {
     const lower = input.toLowerCase()
+    const think = (thought: string, reply: string) => `<think>${thought}</think>\n\n${reply}`
 
     if (lower.includes('你好') || lower.includes('hello') || lower.includes('hi')) {
-      return '你好！我是 Drift AI 助手。试试在对话中自然地切换话题，比如说"另外想到..."或"by the way"，系统会自动为你开新分支。'
+      return think(
+        '用户打了个招呼，随便接一下，顺便提一嘴分支功能。',
+        '嘿！试试在对话中自然地切换话题，比如说"另外想到..."或"by the way"，系统会自动帮你开新分支。'
+      )
     }
 
     if (lower.includes('总结') || lower.includes('summarize')) {
-      return '好的，让我来总结一下：\n\n1. 我们讨论了多个方向\n2. 每个分支的核心观点已经记录\n3. 可以点击右侧的收敛面板生成结构化输出\n\n你可以试试选择几个分支，生成对比表格或决策矩阵。'
+      return think(
+        '用户想要总结，把目前聊到的几个点拉一下。',
+        '**目前聊到这几块：**\n\n1. 讨论了多个方向\n2. 每个分支的核心观点已经记录\n3. 可以用收敛面板生成结构化输出\n\n要不要选几个分支，生成对比表格？'
+      )
     }
 
     if (lower.includes('定价') || lower.includes('pricing')) {
-      return '关于定价策略，有几个常见的模型：\n\n- **免费增值**：基础功能免费，高级功能收费\n- **订阅制**：按月/年收费\n- **按量计费**：按使用量收费\n\n你更倾向哪种模式？每种都有不同的用户获取和留存特征。'
+      return think(
+        '定价策略，先列几个常见模型让用户挑方向。',
+        '常见的定价模型：\n\n- **免费增值** — 基础免费，高级收费\n- **订阅制** — 按月/年收费\n- **按量计费** — 用多少算多少\n\n你更倾向哪种？每种的用户获取和留存特征差别蛮大的。'
+      )
     }
 
     if (lower.includes('竞品') || lower.includes('competitor')) {
-      return '竞品分析可以从几个维度入手：\n\n1. **功能对比**：核心功能覆盖度\n2. **定价策略**：价格区间和计费模式\n3. **用户体验**：上手难度和使用流畅度\n4. **技术架构**：可扩展性和性能\n\n要不要我们逐个维度展开讨论？'
+      return think(
+        '竞品分析，给几个维度让用户选着聊。',
+        '可以从这几个维度切入：\n\n1. **功能覆盖** — 核心功能对比\n2. **定价策略** — 价格区间和计费模式\n3. **体验** — 上手难度和流畅度\n4. **技术架构** — 可扩展性和性能\n\n逐个展开还是先挑一个重点聊？'
+      )
     }
 
-    // 通用回复
-    const replies = [
-      `有意思的观点。让我从另一个角度来看这个问题：${input.slice(0, 20)}... 这个方向值得深入探讨。你觉得最大的风险是什么？`,
-      `好的，我理解你的意思。关于"${input.slice(0, 15)}"，我有几个想法：\n\n1. 这个方向的优势在于降低了门槛\n2. 但需要注意边际成本的控制\n3. 长期来看可能需要差异化\n\n你怎么看？`,
-      `这是一个很好的问题。根据我的理解，${input.slice(0, 20)}... 有几个关键因素需要考虑。要不要我们把这个话题展开，分几个子问题来讨论？`,
+    const thoughts = [
+      '嗯这个挺有意思的，换个角度看看。',
+      '用户这个想法可以拆几层来看。',
+      '先把关键因素理一下再问。',
     ]
-
-    return replies[this.turnCount % replies.length]!
+    const replies = [
+      `有意思。换个角度看 "${input.slice(0, 15)}" 这个方向 — **最大的风险**你觉得是什么？`,
+      `关于 "${input.slice(0, 15)}"，我的想法：\n\n1. 这个方向的优势在于降低门槛\n2. 但边际成本得控住\n3. 长期看需要差异化\n\n你怎么看？`,
+      `"${input.slice(0, 15)}" 有几个关键因素。要不要拆成子问题来聊？`,
+    ]
+    const idx = this.turnCount % replies.length
+    return think(thoughts[idx]!, replies[idx]!)
   }
 }
 
@@ -137,6 +154,9 @@ async function bootstrap() {
 
   const { useDriftStore } = await import('./store/drift-store')
   const store = useDriftStore.getState()
+
+  // 暴露到 window 方便调试动画
+  ;(window as any).__driftStore = store
 
   // 把 EventBus 事件桥接到 store
   const eventTypes = [
