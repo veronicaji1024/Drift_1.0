@@ -131,7 +131,8 @@ export const useDriftStore = create<DriftStore>((set, get) => ({
       set({ rightPanelVisible: true })
     }
     if (prev && prev !== id) {
-      get()._updateFromEvent({ type: 'branch:switched', from: prev, to: id })
+      // 通知 EventBus（如果 BranchManager 需要感知切换）
+      // 状态已通过 set({ activeBranchId }) 更新
     }
   },
 
@@ -404,9 +405,16 @@ ${latestObservation.openQuestions.length > 0 ? `待解问题：${latestObservati
       }
       case 'message:moved': {
         const msgMap = { ...get().messagesByBranch }
+        const movedMsg = (msgMap[event.from] ?? []).find(
+          (m) => m.id === event.messageId
+        )
         msgMap[event.from] = (msgMap[event.from] ?? []).filter(
           (m) => m.id !== event.messageId
         )
+        if (movedMsg) {
+          const updated = { ...movedMsg, branchId: event.to }
+          msgMap[event.to] = [...(msgMap[event.to] ?? []), updated]
+        }
         set({ messagesByBranch: msgMap })
         break
       }
