@@ -8,9 +8,10 @@ import type {
   GlobalMap,
   UserProfile,
   OutputFormat,
+  Deliverable,
 } from '@drift/storage'
 import type { DriftEvent, BranchManager, MessageStore, ForkManager, LLMAdapter, LLMMessage } from '@drift/core'
-import type { IntentDetector, AgentScheduler } from '@drift/agents'
+import type { IntentDetector, AgentScheduler, ConvergenceEngine } from '@drift/agents'
 
 /** 自动 fork 提示信息 */
 interface AutoForkNoticeData {
@@ -34,6 +35,11 @@ export interface DriftStore {
   globalMap: GlobalMap | null
   observations: Record<string, Observation[]>
   profile: UserProfile | null
+
+  // ---- 收敛状态 ----
+  convergenceResult: Deliverable | null
+  convergenceLoading: boolean
+  convergenceError: string | null
 
   // ---- UI 状态 ----
   autoForkNotice: AutoForkNoticeData | null
@@ -74,6 +80,7 @@ interface DriftServices {
   forkManager: ForkManager
   intentDetector: IntentDetector
   agentScheduler: AgentScheduler
+  convergenceEngine: ConvergenceEngine
   llm?: LLMAdapter
 }
 
@@ -103,6 +110,9 @@ export const useDriftStore = create<DriftStore>((set, get) => ({
   globalMap: null,
   observations: {},
   profile: null,
+  convergenceResult: null,
+  convergenceLoading: false,
+  convergenceError: null,
   autoForkNotice: null,
   convergencePanelOpen: false,
   searchQuery: '',
@@ -142,11 +152,17 @@ export const useDriftStore = create<DriftStore>((set, get) => ({
 
     // 通过 IntentDetector 检测是否需要 fork
     const branchObservations = get().observations[branchId] ?? []
-    const topics = branchObservations.flatMap((o) => o.topics)
-    const intentResult = svc.intentDetector.detect(content, topics, get().profile ?? undefined)
+    const latestObs = branchObservations.length > 0 ? branchObservations[branchObservations.length - 1] : null
+    const branchContext = latestObs ? {
+      topic: latestObs.topic,
+      stage: latestObs.stage,
+      keyPoints: latestObs.keyPoints,
+      directionSignal: latestObs.directionSignal,
+    } : undefined
+    const intentResult = svc.intentDetector.detect(content, branchContext)
 
-    // 如果检测到漂移，自动 fork，消息发到新分支
-    if (intentResult.type === 'drift') {
+    // 如果检测到 fork 意图，自动 fork，消息发到新分支
+    if (intentResult.intent === 'fork') {
       const currentMessages = get().messagesByBranch[branchId] ?? []
       const lastMsgId = currentMessages.length > 0
         ? currentMessages[currentMessages.length - 1].id
@@ -154,7 +170,7 @@ export const useDriftStore = create<DriftStore>((set, get) => ({
       if (lastMsgId) {
         try {
           const forkRecord = await svc.forkManager.fork(branchId, lastMsgId, {
-            label: intentResult.suggestedLabel ?? '新话题',
+            label: intentResult.forkLabel ?? '新话题',
             auto: true,
             inheritContext: true,
           })
@@ -265,8 +281,20 @@ export const useDriftStore = create<DriftStore>((set, get) => ({
   },
 
   /** 请求收敛输出 */
-  async requestConvergence(_branchIds: string[], _format: OutputFormat) {
-    // 收敛由 ConvergenceEngine 处理，结果通过事件更新
+  async requestConvergence(branchIds: string[], format: OutputFormat) {
+    const svc = getServices()
+    set({ convergenceLoading: true, convergenceError: null, convergenceResult: null })
+
+    try {
+      const deliverable = await svc.convergenceEngine.generate(branchIds, format)
+      set({ convergenceResult: deliverable })
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : '收敛生成失败'
+      console.error('[Drift] 收敛生成失败:', err)
+      set({ convergenceError: errMsg })
+    } finally {
+      set({ convergenceLoading: false })
+    }
   },
 
   /** 设置搜索关键词 */

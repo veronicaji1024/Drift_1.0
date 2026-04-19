@@ -31,7 +31,7 @@ export function QuickPeek() {
   const latestObs = branchObs.length > 0 ? branchObs[branchObs.length - 1] : null
 
   // 从 GlobalMap 中获取分支主题句
-  const branchSummary = globalMap?.branchSummaries.find(
+  const branchSummary = globalMap?.branchLandscape.summaries.find(
     (s) => s.branchId === quickPeekBranchId
   )
   const topicSentence = branchSummary?.topicSentence ?? null
@@ -65,20 +65,26 @@ export function QuickPeek() {
           {/* 最新 observation 摘要 */}
           {latestObs && (
             <div className="space-y-1">
-              {latestObs.currentTask && (
+              {latestObs.topic && (
                 <div className="text-xs text-gray-500">
-                  <span className="font-medium">当前任务：</span>
-                  {latestObs.currentTask}
+                  <span className="font-medium">当前话题：</span>
+                  {latestObs.topic}
                 </div>
               )}
-              {latestObs.topics.length > 0 && (
+              {latestObs.stage && (
+                <div className="text-xs text-gray-500">
+                  <span className="font-medium">阶段：</span>
+                  {latestObs.stage}
+                </div>
+              )}
+              {latestObs.keyPoints.length > 0 && (
                 <div className="flex flex-wrap gap-1">
-                  {latestObs.topics.slice(0, 4).map((topic, i) => (
+                  {latestObs.keyPoints.slice(0, 4).map((point, i) => (
                     <span
                       key={i}
                       className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded"
                     >
-                      {topic}
+                      {point}
                     </span>
                   ))}
                 </div>

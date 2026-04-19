@@ -7,7 +7,7 @@ import {
   OpenAICompatibleAdapter,
 } from '@drift/core'
 import type { LLMAdapter, LLMMessage, LLMResponse, LLMOptions } from '@drift/core'
-import { IntentDetector, AgentScheduler, ObserverAgent, SynthesizerAgent } from '@drift/agents'
+import { IntentDetector, AgentScheduler, ObserverAgent, SynthesizerAgent, ConvergenceEngine } from '@drift/agents'
 import { injectServices } from './store/drift-store'
 import { DriftApp } from './App'
 
@@ -118,6 +118,7 @@ async function bootstrap() {
   const forkManager = new ForkManager(storage, eventBus, branchManager, messageStore)
   const intentDetector = new IntentDetector()
   const agentScheduler = new AgentScheduler(eventBus)
+  const convergenceEngine = new ConvergenceEngine(llm, storage)
 
   // 初始化 agents（暂不启动调度，后续接入）
   const _observer = new ObserverAgent(llm, storage)
@@ -130,6 +131,7 @@ async function bootstrap() {
     forkManager,
     intentDetector,
     agentScheduler,
+    convergenceEngine,
     llm,
   })
 

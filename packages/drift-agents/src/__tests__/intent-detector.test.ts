@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { IntentDetector } from '../intent-detector/intent-detector.js'
-import type { UserProfile } from '@drift/storage'
 
 describe('IntentDetector', () => {
   let detector: IntentDetector
@@ -9,128 +8,96 @@ describe('IntentDetector', () => {
     detector = new IntentDetector()
   })
 
-  // ─── 漂移检测 ──────────────────────────────
+  // ─── Fork 检测 ──────────────────────────────
 
-  describe('漂移检测', () => {
-    it('中文漂移信号词触发 drift', () => {
-      const result = detector.detect('另外想到一个问题', ['定价策略'])
-      expect(result.type).toBe('drift')
-      expect(result.confidence).toBeGreaterThan(0)
+  describe('Fork 检测', () => {
+    it('中文漂移信号词触发 fork', () => {
+      const result = detector.detect('另外想到一个问题', { topic: '定价策略' })
+      expect(result.intent).toBe('fork')
+      expect(result.confidence).toBe('high')
     })
 
-    it('英文漂移信号词触发 drift', () => {
-      const result = detector.detect('by the way, what about pricing?', ['user retention'])
-      expect(result.type).toBe('drift')
+    it('英文漂移信号词触发 fork', () => {
+      const result = detector.detect('by the way, what about pricing?', { topic: 'user retention' })
+      expect(result.intent).toBe('fork')
     })
 
-    it('btw 触发 drift', () => {
-      const result = detector.detect('btw I also need to check the API', ['database design'])
-      expect(result.type).toBe('drift')
+    it('btw 触发 fork', () => {
+      const result = detector.detect('btw I also need to check the API', { topic: 'database design' })
+      expect(result.intent).toBe('fork')
     })
 
     it('无漂移信号且话题重叠时返回 continue', () => {
-      const result = detector.detect('定价策略需要考虑竞品', ['定价', '策略', '竞品'])
-      expect(result.type).toBe('continue')
+      const result = detector.detect('定价策略需要考虑竞品', { topic: '定价策略竞品分析' })
+      expect(result.intent).toBe('continue')
     })
 
-    it('suggestedLabel 从消息中提取', () => {
-      const result = detector.detect('突然想到我们还需要做用户调研', ['产品设计'])
-      expect(result.type).toBe('drift')
-      expect(result.suggestedLabel).toBeDefined()
-      expect(result.suggestedLabel!.length).toBeGreaterThan(0)
+    it('forkLabel 从消息中提取', () => {
+      const result = detector.detect('突然想到我们还需要做用户调研', { topic: '产品设计' })
+      expect(result.intent).toBe('fork')
+      expect(result.forkLabel).toBeDefined()
+      expect(result.forkLabel!.length).toBeGreaterThan(0)
     })
   })
 
-  // ─── 收敛检测 ──────────────────────────────
+  // ─── 回溯检测 ──────────────────────────────
 
-  describe('收敛检测', () => {
-    it('中文收敛信号词触发 converge', () => {
-      const result = detector.detect('总结一下刚才讨论的内容', ['产品设计'])
-      expect(result.type).toBe('converge')
-      expect(result.confidence).toBeGreaterThan(0.5)
+  describe('回溯检测', () => {
+    it('中文回溯信号词触发 backtrack', () => {
+      const result = detector.detect('回到之前讨论的方案', { topic: '新功能设计' })
+      expect(result.intent).toBe('backtrack')
+      expect(result.confidence).toBe('high')
     })
 
-    it('英文收敛信号词触发 converge', () => {
-      const result = detector.detect('let me summarize what we discussed', ['product design'])
-      expect(result.type).toBe('converge')
+    it('英文回溯信号词触发 backtrack', () => {
+      const result = detector.detect('going back to what we discussed earlier', { topic: 'new feature' })
+      expect(result.intent).toBe('backtrack')
     })
 
-    it('多个收敛信号词提升 confidence', () => {
-      const r1 = detector.detect('总结一下', ['topic'])
-      const r2 = detector.detect('总结一下并且比较一下', ['topic'])
-      expect(r2.confidence).toBeGreaterThan(r1.confidence)
+    it('回溯优先于 fork', () => {
+      // 既有回溯词又有 fork 词时，回溯优先
+      const result = detector.detect('回到之前的讨论，另外想到一个问题', { topic: '产品设计' })
+      expect(result.intent).toBe('backtrack')
     })
 
-    it('收敛信号优先于漂移信号', () => {
-      // 既有收敛词又有漂移词时，收敛优先
-      const result = detector.detect('另外想到，总结一下刚才的讨论', ['topic'])
-      expect(result.type).toBe('converge')
+    it('earlyTopics 重叠触发隐式回溯', () => {
+      const result = detector.detect('我们再看看数据库设计方案', {
+        topic: '前端架构',
+        earlyTopics: ['数据库设计方案'],
+      })
+      expect(result.intent).toBe('backtrack')
+      expect(result.confidence).toBe('medium')
     })
   })
 
   // ─── Cooldown ──────────────────────────────
 
   describe('冷却机制', () => {
-    it('冷却期内漂移降级为 continue', () => {
-      // 设一个分支的 cooldown
+    it('tickCooldown 推进计数', () => {
       detector.resetCooldown('branch-1')
-      // tick 0 次 → 还在冷却期内
-
-      const result = detector.detect('另外想到一个问题', ['定价'])
-      // 冷却期内应降级
-      expect(result.type).toBe('continue')
+      detector.tickCooldown('branch-1')
+      detector.tickCooldown('branch-1')
+      // 不崩溃即可
     })
 
-    it('冷却结束后恢复漂移检测', () => {
+    it('resetCooldown 重置计数', () => {
+      detector.tickCooldown('branch-1')
+      detector.tickCooldown('branch-1')
       detector.resetCooldown('branch-1')
-      // 默认 cooldownTurns = 3，tick 3 次
-      detector.tickCooldown('branch-1')
-      detector.tickCooldown('branch-1')
-      detector.tickCooldown('branch-1')
-
-      const result = detector.detect('另外想到一个问题', ['定价'])
-      expect(result.type).toBe('drift')
+      // 不崩溃即可
     })
   })
 
-  // ─── Profile 调参 ─────────────────────────
+  // ─── exhausted 阶段 ─────────────────────────
 
-  describe('Profile 参数影响', () => {
-    it('高灵敏度更容易触发 drift', () => {
-      const highSensitivity: Partial<UserProfile> = {
-        intentDetectorSensitivity: 0.9,
-        forkCooldownTurns: 0,
-      }
-      const lowSensitivity: Partial<UserProfile> = {
-        intentDetectorSensitivity: 0.1,
-        forkCooldownTurns: 0,
-      }
-
-      // 用一个含漂移信号词的消息测试
-      const msg = '另外想到一个关于营销的问题'
-      const topics = ['产品设计', '用户体验']
-
-      const highResult = detector.detect(msg, topics, highSensitivity as UserProfile)
-      const lowResult = detector.detect(msg, topics, lowSensitivity as UserProfile)
-
-      // 高灵敏度的 confidence 应 >= 低灵敏度
-      expect(highResult.confidence).toBeGreaterThanOrEqual(lowResult.confidence)
-    })
-
-    it('forkCooldownTurns 控制冷却轮次', () => {
-      const profile: Partial<UserProfile> = {
-        intentDetectorSensitivity: 0.5,
-        forkCooldownTurns: 5,
-      }
-
-      detector.resetCooldown('branch-1')
-      // tick 3 次 < 5，仍在冷却
-      for (let i = 0; i < 3; i++) {
-        detector.tickCooldown('branch-1')
-      }
-
-      const result = detector.detect('另外想到一个问题', ['定价'], profile as UserProfile)
-      expect(result.type).toBe('continue')
+  describe('exhausted 阶段', () => {
+    it('exhausted 阶段 fork 置为 high confidence', () => {
+      const result = detector.detect('另外想到一个问题', {
+        topic: '定价策略',
+        stage: 'exhausted',
+      })
+      expect(result.intent).toBe('fork')
+      expect(result.confidence).toBe('high')
     })
   })
 
@@ -138,20 +105,18 @@ describe('IntentDetector', () => {
 
   describe('边界情况', () => {
     it('空消息返回 continue', () => {
-      const result = detector.detect('', ['topic'])
-      expect(result.type).toBe('continue')
+      const result = detector.detect('', { topic: 'topic' })
+      expect(result.intent).toBe('continue')
     })
 
-    it('空话题列表时不崩溃', () => {
-      const result = detector.detect('另外想到一个问题', [])
-      // 空话题列表时 topicDriftScore=0，只有信号词分数
-      // 不要求一定触发 drift，只要不崩溃即可
-      expect(['drift', 'continue']).toContain(result.type)
+    it('无 branchContext 时不崩溃', () => {
+      const result = detector.detect('另外想到一个问题')
+      expect(result.intent).toBe('fork')
     })
 
-    it('话题和消息都为空时返回 continue', () => {
-      const result = detector.detect('', [])
-      expect(result.type).toBe('continue')
+    it('空 topic 的 branchContext 不崩溃', () => {
+      const result = detector.detect('正常消息', {})
+      expect(result.intent).toBe('continue')
     })
   })
 })

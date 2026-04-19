@@ -76,15 +76,25 @@ export interface ForkRecord {
   auto: boolean
 }
 
-/** Observation — 分支级 T1 观测 */
+// ─── BranchContext 输出 ────────────────────────
+
+/** 分支进展阶段 */
+export type BranchStage = 'exploring' | 'deepening' | 'concluding' | 'exhausted'
+
+/** Observation — 分支上下文摘要（对应 BranchContext agent 输出） */
 export interface Observation {
   id: string
   branchId: string
-  topics: string[]
-  facts: string[]
-  decisions: string[]
+  /** 一句话概括分支在讨论什么 */
+  topic: string
+  /** 进展阶段 */
+  stage: BranchStage
+  /** 已确认的关键结论（最多 5 条），被推翻的标注 [已推翻] 前缀 */
+  keyPoints: string[]
+  /** 待解问题（最多 3 条） */
   openQuestions: string[]
-  currentTask: string
+  /** 走向信号 — 基于最近对话判断分支演进方向 */
+  directionSignal: string
   /** 消息索引范围 [start, end] */
   messageRange: [number, number]
   /** 创建时间（ISO 8601） */
@@ -92,65 +102,133 @@ export interface Observation {
   tokenCount: number
 }
 
+// ─── ContextKeeper 输出 ────────────────────────
+
 /** 分支摘要（GlobalMap 内部使用） */
 export interface BranchSummary {
   branchId: string
+  /** 一句话概括该分支主题 */
   topicSentence: string
-  relationToParent: string
-  relationToRoot: string
-  status: 'exploring' | 'converging' | 'concluded'
+  /** 分支进展阶段 */
+  stage: BranchStage
+  /** 该分支在整体对话中扮演的角色（一句话定位） */
+  role: string
 }
 
-/** 跨分支洞察 */
-export interface CrossBranchInsight {
+/** 分支间关系类型 */
+export type BranchRelationType =
+  | 'complementary'   // 互补：从不同角度探讨同一问题
+  | 'competing'       // 竞争：探讨了互斥的方案
+  | 'progressive'     // 递进：一个是另一个的深入或延展
+  | 'derived'         // 派生：基于另一个的结论去探索新问题
+  | 'contradictory'   // 矛盾：各自得出了不兼容的结论
+  | 'supporting'      // 支撑：一个的结论为另一个提供论据
+  | 'independent'     // 独立：讨论不同话题，无明显关联
+
+/** 分支间关系 */
+export interface BranchRelation {
+  branchIdA: string
+  branchIdB: string
+  types: BranchRelationType[]
+}
+
+/** 跨主题关联 — 不同分支/议题间未被显式讨论但逻辑上相关的联系 */
+export interface CrossThemeConnection {
   branchIds: string[]
-  insight: string
+  /** 关联的性质 */
+  nature: string
+  /** 为什么值得关注 */
+  significance: string
 }
 
-/** 导航提示 */
-export interface NavigationHint {
-  fromBranchId: string
-  toBranchId: string
-  reason: string
-  relevance: number
-  trigger: 'topic_overlap' | 'open_question_answered' | 'contradiction' | 'dependency'
+/** 导航建议动作类型 */
+export type NavigationAction = 'deep_dive' | 'new_direction' | 'jump' | 'converge'
+
+/** 导航建议 */
+export interface NavigationSuggestion {
+  action: NavigationAction
+  /** 目标描述（deep_dive 的话题 / new_direction 的方向 / jump 的分支 / converge 的文档类型） */
+  target: string
+  /** 面向用户的理由 */
+  reasoning: string
 }
 
-/** GlobalMap — 跨分支全局视图（T2） */
+/** 收敛就绪度 */
+export type ConvergenceReadiness = 'not_ready' | 'partially_ready' | 'ready'
+
+/** GlobalMap — 全局对话地图（对应 ContextKeeper agent 输出） */
 export interface GlobalMap {
-  branchSummaries: BranchSummary[]
-  crossBranchInsights: CrossBranchInsight[]
-  navigationHints: NavigationHint[]
-  overallProgress: string
+  /** 整体主题（按主次区分） */
+  overallTheme: {
+    mainTopics: string[]
+    sideTopics: string[]
+  }
+  /** 分支全景 */
+  branchLandscape: {
+    summaries: BranchSummary[]
+    relations: BranchRelation[]
+  }
+  /** 跨主题关联 */
+  crossThemeConnections: CrossThemeConnection[]
+  /** 探索覆盖度 */
+  explorationCoverage: {
+    wellExplored: string[]
+    justStarted: string[]
+    blindSpots: string[]
+  }
+  /** 收敛就绪度 */
+  convergenceReadiness: {
+    status: ConvergenceReadiness
+    reason: string
+  }
+  /** 导航建议（1-3 条） */
+  navigationSuggestions: NavigationSuggestion[]
   /** 创建时间（ISO 8601） */
   timestamp: string
 }
 
-/** 用户偏好的输出格式 */
-export type OutputFormat = 'outline' | 'comparison' | 'decision-matrix' | 'checklist' | 'prose' | 'custom'
+// ─── ProfileAgent 输出 ────────────────────────
 
-/** 用户画像（跨会话） */
+/** 思维风格 */
+export type ThinkingStyle = 'divergent' | 'convergent' | 'balanced'
+/** 深度偏好 */
+export type DepthPreference = 'surface' | 'moderate' | 'deep'
+/** 交互模式 */
+export type InteractionPattern = 'questioner' | 'challenger' | 'collaborator' | 'director'
+/** 回复偏好 */
+export type ResponsePreference = 'concise' | 'detailed' | 'structured' | 'conversational'
+/** 画像置信度 */
+export type ProfileConfidence = 'provisional' | 'developing' | 'stable'
+
+/** 用户画像（对应 ProfileAgent agent 输出） */
 export interface UserProfile {
-  thinkingStyle: 'divergent-first' | 'linear' | 'jumping'
-  topicSwitchFrequency: 'high' | 'medium' | 'low'
-  preferredOutputFormat: OutputFormat
-  autoForkTolerance: number
-  detailLevel: 'concise' | 'detailed'
-  intentDetectorSensitivity: number
-  observerDebounceSec: number
-  forkCooldownTurns: number
-  domainExpertise: Record<string, 'expert' | 'intermediate' | 'novice'>
+  thinkingStyle: { type: ThinkingStyle; description: string }
+  depthPreference: { type: DepthPreference; description: string }
+  interactionPattern: { type: InteractionPattern; description: string }
+  focusAreas: Array<{ topic: string; level: 'high' | 'medium' | 'low' }>
+  responsePreference: ResponsePreference
+  confidenceLevel: ProfileConfidence
   /** 最后更新时间（ISO 8601） */
   lastUpdated: string
-  sessionCount: number
-  insights: string[]
 }
 
-/** 交付物（T3 收敛输出） */
+// ─── ConvergenceEngine 输出 ────────────────────
+
+/** 输出格式（对应 ConvergenceEngine 的 6 种格式） */
+export type OutputFormat =
+  | 'outline'             // 层级大纲
+  | 'structured-summary'  // 结构化摘要（默认）
+  | 'comparison'          // 对比表格
+  | 'decision-matrix'     // 决策矩阵
+  | 'full-report'         // 完整报告
+  | 'custom'              // 自定义
+
+/** 交付物（收敛输出） */
 export interface Deliverable {
   id: string
   branchIds: string[]
   format: OutputFormat
+  /** 生成的完整内容（含 title / overview / body / gaps / sources） */
   content: string
   observationsUsed: string[]
   /** 创建时间（ISO 8601） */
@@ -210,7 +288,7 @@ export interface BranchStorage {
 }
 
 /**
- * ObservationStorage — Observation（T1）存储
+ * ObservationStorage — Observation 存储
  * 每个分支可有多条 Observation
  */
 export interface ObservationStorage {
@@ -227,7 +305,7 @@ export interface ObservationStorage {
 }
 
 /**
- * GlobalMapStorage — GlobalMap（T2）存储
+ * GlobalMapStorage — GlobalMap 存储
  * 保存历史版本，最新一条为当前
  */
 export interface GlobalMapStorage {
@@ -266,7 +344,7 @@ export interface ForkRecordStorage {
 }
 
 /**
- * DeliverableStorage — 交付物（T3）存储
+ * DeliverableStorage — 交付物存储
  */
 export interface DeliverableStorage {
   /** 保存交付物 */

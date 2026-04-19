@@ -13,35 +13,40 @@ function generateDeliverableId(): string {
   return `del_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 }
 
-/** 各格式的 LLM 指令 */
+/** 各格式的 LLM 指令 — 对应 system prompt 文档中 ConvergenceEngine 的 6 种格式 */
 const FORMAT_INSTRUCTIONS: Record<OutputFormat, string> = {
-  outline: `Output a hierarchical outline using nested bullet points.
-Each major section should correspond to a branch. Indent sub-points under each section.
-Attribute each point to its source branch using [branch-id] prefix.
-Format: markdown outline with - and indentation.`,
+  outline: `输出层级大纲，使用缩进列表。
+每个主要章节对应一个分支方向。
+属性每个要点到来源分支。
+格式：markdown 缩进列表。`,
 
-  comparison: `Output a comparison table in markdown format.
-Rows = criteria/dimensions found across branches.
-Columns = branches being compared.
-Each cell should contain the branch's stance or finding on that criterion.
-Format: markdown table.`,
+  'structured-summary': `输出结构化摘要，按主题分类。
+格式：
+## 主题 1：...
+- 要点 1
+- 待解问题：...
 
-  'decision-matrix': `Output a weighted decision matrix in markdown table format.
-Rows = options/alternatives from different branches.
-Columns = evaluation criteria (derived from observations).
-Include a "Weight" row at the top. Include a "Score" column at the right.
-Format: markdown table with scores.`,
+## 跨主题洞察
+...`,
 
-  checklist: `Output an action-item checklist compiled from all branches.
-Group items by branch or by theme.
-Mark items as [ ] (todo) or [x] (done, if decisions were made).
-Include priority indicators: 🔴 high, 🟡 medium, 🟢 low.
-Format: markdown checklist.`,
+  comparison: `输出 markdown 对比表格。
+行 = 对比维度（从各分支提取）。
+列 = 被对比的方案/分支。
+每个单元格包含该方案在该维度的观点。
+附带核心差异和补充说明。`,
 
-  prose: `Output a narrative summary that weaves together findings from all branches.
-Flow naturally between topics. Reference branch sources inline.
-Include an opening summary paragraph and a closing section with next steps.
-Format: flowing prose paragraphs.`,
+  'decision-matrix': `输出带权重的决策矩阵，markdown 表格格式。
+行 = 备选方案（来自不同分支）。
+列 = 评估维度（从 observations 推导）。
+包含权重行和总分列。
+附带推荐和推荐理由。`,
+
+  'full-report': `输出完整报告，包含：
+# 标题
+## 背景
+## 核心发现
+## 详细分析（按子章节展开）
+## 结论与建议`,
 
   custom: `Follow the user-provided template exactly.
 Replace placeholders with actual content from the branches.
@@ -49,24 +54,33 @@ Maintain the template's structure and formatting.`,
 }
 
 /** 基础系统提示词 */
-const CONVERGENCE_SYSTEM_PROMPT = `You are a convergence engine. Given observations and insights from multiple conversation branches, produce a structured deliverable.
+const CONVERGENCE_SYSTEM_PROMPT = `你是 Drift 对话系统中的收敛输出引擎（ConvergenceEngine）。
 
-You will receive:
-1. Observations (T1) from each selected branch
-2. The GlobalMap with cross-branch insights (if available)
-3. Format-specific instructions
+你的职责是将分散在多个分支中的对话成果，收敛为一份结构化的输出文档。
 
-Rules:
-- Be thorough but concise
-- Attribute information to source branches
-- Highlight cross-branch connections and contradictions
-- Support both Chinese and English content — match the language of the source material`
+你是整理者，不是创作者——内容来自对话，不添加对话中没有的信息。
+
+### 输出结构（所有格式通用）
+
+1. 文档标题（简洁，不超过 20 字）
+2. 概述（2-3 句话，标注信息来源分支数量）
+3. 正文（按指定格式组织）
+4. 信息缺口（如有）
+5. 信息来源（列出各分支的核心贡献）
+
+### 写作原则
+
+- 保持中立，如实呈现各方观点
+- 多个分支对同一问题有不同结论 → 并列展示，不擅自判断
+- 有矛盾 → 明确标注分歧
+- 被标记为 [已推翻] 的结论 → 从正文排除，但如果推翻过程有参考价值可简要提及
+- 结论来自对话中已确认的共识，不自行推导
+- 输出语言与源材料语言一致`
 
 /**
- * Convergence Engine — 结构化交付物生成器
+ * Convergence Engine — 收敛输出引擎（ConvergenceEngine）
  *
- * 从多个分支的 T1 Observations 和 GlobalMap 生成指定格式的交付物。
- * 使用强模型层级（Opus / 4）。
+ * 从多个分支的 Observations 和 GlobalMap 生成指定格式的交付物。
  */
 export class ConvergenceEngine {
   private llm: LLMAdapter
@@ -97,7 +111,6 @@ export class ConvergenceEngine {
     format: OutputFormat,
     customTemplate?: string,
   ): Promise<Deliverable> {
-    // 收集各分支的 observations
     const observationsByBranch = new Map<string, Observation[]>()
     const observationIds: string[] = []
 
@@ -111,7 +124,7 @@ export class ConvergenceEngine {
       }
     }
 
-    // 如果没有 T1，回退读取 T0 原始消息
+    // 如果没有 observations，回退读取原始消息
     let fallbackMessages: Map<string, Message[]> | undefined
     if (observationsByBranch.size === 0) {
       fallbackMessages = new Map()
@@ -123,10 +136,8 @@ export class ConvergenceEngine {
       }
     }
 
-    // 读取 GlobalMap
     const globalMap = await this.storage.globalMap.get()
 
-    // 组装 LLM 输入
     const inputText = this.buildInput(
       observationsByBranch,
       globalMap,
@@ -135,7 +146,6 @@ export class ConvergenceEngine {
       fallbackMessages,
     )
 
-    // 调用 LLM
     const messages: LLMMessage[] = [
       { role: 'system', content: CONVERGENCE_SYSTEM_PROMPT },
       { role: 'user', content: inputText },
@@ -146,7 +156,6 @@ export class ConvergenceEngine {
       maxTokens: 8192,
     })
 
-    // 构造 Deliverable
     const deliverable: Deliverable = {
       id: generateDeliverableId(),
       branchIds,
@@ -156,9 +165,7 @@ export class ConvergenceEngine {
       timestamp: new Date().toISOString(),
     }
 
-    // 持久化
     await this.storage.deliverables.save(deliverable)
-
     return deliverable
   }
 
@@ -176,26 +183,25 @@ export class ConvergenceEngine {
     const formatInstruction = format === 'custom' && customTemplate
       ? `${FORMAT_INSTRUCTIONS.custom}\n\nTemplate:\n${customTemplate}`
       : FORMAT_INSTRUCTIONS[format]
-    parts.push(`## Output Format\n${formatInstruction}`)
+    parts.push(`## 输出格式\n${formatInstruction}`)
 
     // 分支 Observations
     if (observationsByBranch.size > 0) {
-      parts.push('\n## Branch Observations')
+      parts.push('\n## 分支摘要（来自 BranchContext）')
       for (const [branchId, observations] of observationsByBranch) {
-        parts.push(`\n### Branch: ${branchId}`)
+        parts.push(`\n### 分支: ${branchId}`)
         for (const obs of observations) {
-          parts.push(`Topics: ${obs.topics.join(', ')}`)
-          parts.push(`Facts: ${obs.facts.join('; ')}`)
-          parts.push(`Decisions: ${obs.decisions.join('; ')}`)
-          parts.push(`Open Questions: ${obs.openQuestions.join('; ')}`)
-          parts.push(`Current Task: ${obs.currentTask}`)
+          parts.push(`主题: ${obs.topic}`)
+          parts.push(`阶段: ${obs.stage}`)
+          parts.push(`关键结论: ${obs.keyPoints.join('; ')}`)
+          parts.push(`待解问题: ${obs.openQuestions.join('; ')}`)
+          parts.push(`走向: ${obs.directionSignal}`)
         }
       }
     } else if (fallbackMessages && fallbackMessages.size > 0) {
-      // 回退：使用原始消息
-      parts.push('\n## Branch Messages (raw — no observations available)')
+      parts.push('\n## 分支原始消息（无摘要可用）')
       for (const [branchId, messages] of fallbackMessages) {
-        parts.push(`\n### Branch: ${branchId}`)
+        parts.push(`\n### 分支: ${branchId}`)
         for (const msg of messages) {
           if (msg.role !== 'system') {
             parts.push(`[${msg.role}]: ${msg.content}`)
@@ -204,14 +210,30 @@ export class ConvergenceEngine {
       }
     }
 
-    // GlobalMap（如果有）
+    // GlobalMap 信息
     if (globalMap) {
-      parts.push('\n## Cross-Branch Insights')
-      for (const insight of globalMap.crossBranchInsights) {
-        parts.push(`- [${insight.branchIds.join(', ')}]: ${insight.insight}`)
+      // 跨主题关联
+      if (globalMap.crossThemeConnections.length > 0) {
+        parts.push('\n## 跨主题关联')
+        for (const conn of globalMap.crossThemeConnections) {
+          parts.push(`- [${conn.branchIds.join(', ')}]: ${conn.nature} — ${conn.significance}`)
+        }
       }
-      if (globalMap.overallProgress) {
-        parts.push(`\nOverall Progress: ${globalMap.overallProgress}`)
+
+      // 分支关系
+      if (globalMap.branchLandscape.relations.length > 0) {
+        parts.push('\n## 分支间关系')
+        for (const rel of globalMap.branchLandscape.relations) {
+          parts.push(`- ${rel.branchIdA} ↔ ${rel.branchIdB}: ${rel.types.join(', ')}`)
+        }
+      }
+
+      // 探索覆盖度
+      if (globalMap.explorationCoverage.blindSpots.length > 0) {
+        parts.push('\n## 信息缺口（盲区）')
+        for (const spot of globalMap.explorationCoverage.blindSpots) {
+          parts.push(`- ${spot}`)
+        }
       }
     }
 

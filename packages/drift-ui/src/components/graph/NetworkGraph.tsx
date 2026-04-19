@@ -147,7 +147,7 @@ export function NetworkGraph() {
     for (const [branchId, obs] of Object.entries(observations)) {
       if (obs.length > 0) {
         const latest = obs[obs.length - 1]
-        const text = latest.currentTask || latest.topics[0] || ''
+        const text = latest.topic || ''
         if (text) summaries[branchId] = truncateSummary(text)
       }
     }
@@ -162,7 +162,7 @@ export function NetworkGraph() {
       flattenTree(tree, null, messageCounts, n, l)
     }
     if (globalMap) {
-      for (const insight of globalMap.crossBranchInsights) {
+      for (const insight of globalMap.crossThemeConnections) {
         if (insight.branchIds.length >= 2) {
           for (let i = 0; i < insight.branchIds.length - 1; i++) {
             const srcExists = n.some((node) => node.id === insight.branchIds[i])

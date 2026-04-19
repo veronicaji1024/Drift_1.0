@@ -10,7 +10,7 @@ export type { DriftStore } from './store/drift-store'
 // Hooks
 export { useBranch, useActiveBranch, useBranchTree } from './hooks/use-branch'
 export { useMessages, useReEntryBreadcrumb } from './hooks/use-messages'
-export { useNavigationHints, useSearchResults } from './hooks/use-navigation'
+export { useNavigationSuggestions, useSearchResults } from './hooks/use-navigation'
 
 // 主要组件
 export { NetworkGraph } from './components/graph/NetworkGraph'
