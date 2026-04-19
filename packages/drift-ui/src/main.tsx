@@ -120,9 +120,11 @@ async function bootstrap() {
   const agentScheduler = new AgentScheduler(eventBus)
   const convergenceEngine = new ConvergenceEngine(llm, storage)
 
-  // 初始化 agents（暂不启动调度，后续接入）
-  const _observer = new ObserverAgent(llm, storage)
-  const _synthesizer = new SynthesizerAgent(llm, storage)
+  // 初始化 agents 并注入到调度器
+  const observer = new ObserverAgent(llm, storage)
+  const synthesizer = new SynthesizerAgent(llm, storage)
+  agentScheduler.injectAgents({ observer, synthesizer })
+  agentScheduler.listen()
 
   // 注入服务到 Zustand store
   injectServices({

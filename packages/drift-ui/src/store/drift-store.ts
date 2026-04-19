@@ -206,10 +206,53 @@ export const useDriftStore = create<DriftStore>((set, get) => ({
       // 调用 LLM 获取 AI 回复
       if (svc.llm) {
         const history = get().messagesByBranch[targetBranchId] ?? []
-        const llmMessages: LLMMessage[] = history.map((m) => ({
-          role: m.role === 'system' ? 'system' : m.role === 'assistant' ? 'assistant' : 'user',
-          content: m.content,
-        }))
+
+        // 从 observations 获取当前分支的上下文信息
+        const branchObs = get().observations[targetBranchId] ?? []
+        const latestObservation = branchObs.length > 0 ? branchObs[branchObs.length - 1] : null
+        const branch = get().branches[targetBranchId]
+
+        // 组装 system prompt
+        let systemContent = `你是 Drift 对话助手。用户正在分支式对话中探索话题。
+
+当前分支：${branch?.label ?? '未命名'}
+你的职责是帮助用户深入探讨当前话题，给出有价值的回复。
+
+### 回复原则
+- 保持对话聚焦在当前分支的话题上
+- 如果用户的问题与当前话题相关，深入展开
+- 回复应该有结构性，适当使用列表和分点
+- 用中文回复（除非用户使用英文）`
+
+        if (latestObservation) {
+          systemContent += `\n\n### 当前分支上下文
+话题：${latestObservation.topic || '探索中'}
+阶段：${latestObservation.stage}
+${latestObservation.keyPoints.length > 0 ? `已确认要点：${latestObservation.keyPoints.join('；')}` : ''}
+${latestObservation.openQuestions.length > 0 ? `待解问题：${latestObservation.openQuestions.join('；')}` : ''}`
+        }
+
+        // 如果有全局洞察，注入跨分支信息
+        const globalMap = get().globalMap
+        if (globalMap) {
+          const relatedConnections = globalMap.crossThemeConnections.filter(
+            (c) => c.branchIds.includes(targetBranchId)
+          )
+          if (relatedConnections.length > 0) {
+            systemContent += '\n\n### 跨分支关联（供参考）'
+            for (const conn of relatedConnections.slice(0, 3)) {
+              systemContent += `\n- ${conn.nature}：${conn.significance}`
+            }
+          }
+        }
+
+        const llmMessages: LLMMessage[] = [
+          { role: 'system', content: systemContent },
+          ...history.map((m) => ({
+            role: m.role === 'system' ? 'system' as const : m.role === 'assistant' ? 'assistant' as const : 'user' as const,
+            content: m.content,
+          })),
+        ]
 
         const response = await svc.llm.chat(llmMessages)
 
