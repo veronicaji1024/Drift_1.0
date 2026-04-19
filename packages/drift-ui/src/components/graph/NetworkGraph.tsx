@@ -50,6 +50,26 @@ const STATUS_COLORS: Record<string, string> = {
   concluded: '#10B981',
 }
 
+/** Q*bert 像素数据（和 MessageList 中一致） */
+const _t = 'transparent'
+const QBERT_PIXELS: string[][] = (() => {
+  const o='#E02020',k='#222'
+  return [
+    [_t,_t,o,o,o,o,o,o,_t,_t,_t,_t,_t,_t],
+    [_t,o,o,o,o,o,o,o,o,_t,_t,_t,_t,_t],
+    [o,o,o,o,o,o,o,o,o,o,_t,_t,_t,_t],
+    [o,o,o,o,o,o,o,o,o,o,_t,_t,_t,_t],
+    [o,o,o,k,o,o,o,k,o,o,o,o,o,k],
+    [o,o,o,o,o,o,o,o,o,o,o,o,o,k],
+    [_t,o,o,o,o,o,o,o,o,o,_t,_t,_t,_t],
+    [_t,_t,o,o,o,o,o,o,o,_t,_t,_t,_t,_t],
+    [_t,_t,_t,o,o,o,o,_t,_t,_t,_t,_t,_t,_t],
+    [_t,_t,_t,o,o,_t,o,o,_t,_t,_t,_t,_t,_t],
+    [_t,_t,_t,o,_t,_t,_t,o,_t,_t,_t,_t,_t,_t],
+    [_t,_t,o,o,_t,_t,_t,o,o,_t,_t,_t,_t,_t],
+  ]
+})()
+
 /** 根据消息数计算节点半径 */
 function computeRadius(messageCount: number): number {
   return Math.max(16, Math.min(40, 16 + Math.sqrt(messageCount) * 6))
@@ -289,7 +309,7 @@ export function NetworkGraph() {
     <div ref={containerRef} className="relative w-full h-full overflow-hidden" onClick={closeContextMenu}>
       <svg ref={svgRef} className="w-full h-full" style={{ cursor: 'grab' }}>
         <g ref={gRef}>
-          {/* 节点间连线 */}
+          {/* 节点间连线 — 豆子轨迹 */}
           {links.map((link, i) => {
             const src = typeof link.source === 'object' ? link.source : null
             const tgt = typeof link.target === 'object' ? link.target : null
@@ -297,19 +317,28 @@ export function NetworkGraph() {
             const tgtPos = tgt ? nodePositions[tgt.id] : null
             if (!srcPos || !tgtPos) return null
 
+            const dx = tgtPos.x - srcPos.x
+            const dy = tgtPos.y - srcPos.y
+            const dist = Math.sqrt(dx * dx + dy * dy)
+            const beanCount = Math.max(2, Math.floor(dist / 18))
+            const beans = Array.from({ length: beanCount }, (_, j) => {
+              const t = (j + 1) / (beanCount + 1)
+              return { x: srcPos.x + dx * t, y: srcPos.y + dy * t }
+            })
+
             return (
-              <line
-                key={`link-${i}`}
-                x1={srcPos.x}
-                y1={srcPos.y}
-                x2={tgtPos.x}
-                y2={tgtPos.y}
-                stroke={link.type === 'cross-branch' ? '#C4B5A0' : '#D1C4B0'}
-                strokeWidth={link.type === 'cross-branch' ? 1 : 2.5}
-                strokeDasharray={link.type === 'cross-branch' ? '4 4' : undefined}
-                strokeOpacity={link.type === 'cross-branch' ? 0.5 : 0.6}
-                strokeLinecap="round"
-              />
+              <g key={`link-${i}`}>
+                {beans.map((b, j) => (
+                  <circle
+                    key={j}
+                    cx={b.x}
+                    cy={b.y}
+                    r={2.5}
+                    fill="#E02020"
+                    opacity={link.type === 'cross-branch' ? 0.3 : 0.5}
+                  />
+                ))}
+              </g>
             )
           })}
 
@@ -335,23 +364,15 @@ export function NetworkGraph() {
                 onMouseEnter={() => setHoveredNode(node.id)}
                 onMouseLeave={() => setHoveredNode(null)}
               >
-                {/* 活跃节点脉冲光晕 */}
-                {isActive && (
-                  <circle r={r + 8} fill={color} opacity={0.15} className="animate-pulse" />
-                )}
-
-                {/* 主圆 */}
-                <circle
-                  r={r}
-                  fill={color}
-                  opacity={isArchived ? 0.3 : 0.85}
-                  stroke={isHovered || isActive ? '#fff' : 'none'}
-                  strokeWidth={isHovered || isActive ? 2 : 0}
+                {/* Q*bert 像素头像 */}
+                <g
+                  transform={`translate(${-r + (r * 2) / 14 * 2}, ${-r}) scale(${(r * 2) / 14})`}
+                  opacity={isArchived ? 0.3 : (isHovered ? 1 : 0.9)}
                   style={{ transition: 'opacity 0.2s ease' }}
-                />
+                >
+                  {QBERT_PIXELS.map((row, py) => row.map((c, px) => c !== _t ? <rect key={`${px}-${py}`} x={px} y={py} width="1" height="1" fill={c} style={{ imageRendering: 'pixelated' }} /> : null))}
+                </g>
 
-                {/* 内部小圆点 */}
-                <circle r={Math.max(3, r * 0.25)} fill="#fff" opacity={0.4} />
 
                 {/* 分支名称 */}
                 <text
