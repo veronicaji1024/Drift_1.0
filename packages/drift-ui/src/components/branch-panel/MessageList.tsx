@@ -146,7 +146,7 @@ function LoadingIndicator() {
 }
 
 /** 错误提示卡片 */
-function ErrorCard({ message }: { message: string; branchId: string }) {
+function ErrorCard({ message }: { message: string }) {
   return (
     <div className="mx-4 my-2 px-3 py-2 bg-red-50 border border-red-100 rounded-lg">
       <div className="flex items-center gap-2 text-sm text-red-600">
@@ -202,7 +202,7 @@ export function MessageList({ branchId, messages }: MessageListProps) {
       {isLoading && <LoadingIndicator />}
 
       {/* 错误提示 */}
-      {errorMessage && <ErrorCard message={errorMessage} branchId={branchId} />}
+      {errorMessage && <ErrorCard message={errorMessage} />}
 
       {contextMenu && (
         <MessageMenu

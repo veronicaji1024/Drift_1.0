@@ -19,10 +19,6 @@ export function ConversationPanel({ width, visible, onToggle }: ConversationPane
   const isLoading = useDriftStore((s) =>
     s.activeBranchId ? s.loadingBranches.has(s.activeBranchId) : false
   )
-  const error = useDriftStore((s) =>
-    s.activeBranchId ? s.errorByBranch[s.activeBranchId] : undefined
-  )
-
   /** 自动滚动到底部 */
   const messagesEndRef = useRef<HTMLDivElement>(null)
   useEffect(() => {

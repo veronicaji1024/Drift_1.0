@@ -167,7 +167,8 @@ export class AgentScheduler {
           console.warn(`[AgentScheduler] Observer 未注入，跳过 branch ${branchId}`)
           return
         }
-        await observer.run(branchId)
+        const observation = await observer.run(branchId)
+        this.eventBus.emit({ type: 'observation:created', observation })
       },
     })
   }
@@ -184,7 +185,8 @@ export class AgentScheduler {
           console.warn('[AgentScheduler] Synthesizer 未注入，跳过')
           return
         }
-        await synthesizer.run()
+        const globalMap = await synthesizer.run()
+        this.eventBus.emit({ type: 'globalmap:updated', globalMap })
       },
     })
   }
