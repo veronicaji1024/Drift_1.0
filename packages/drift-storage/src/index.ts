@@ -39,3 +39,4 @@ export type {
 } from './types/storage.js'
 
 export { InMemoryAdapter } from './adapters/in-memory.js'
+export { IndexedDBAdapter } from './adapters/indexeddb.js'

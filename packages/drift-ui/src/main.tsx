@@ -1,7 +1,7 @@
 /** Drift 开发入口 — 初始化 core 服务并挂载 React 应用 */
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { InMemoryAdapter } from '@drift/storage'
+import { IndexedDBAdapter } from '@drift/storage'
 import {
   EventBus, BranchManager, MessageStore, ForkManager,
   OpenAICompatibleAdapter,
@@ -110,7 +110,7 @@ function createLLM(): LLMAdapter {
 
 /** 初始化所有 core 服务并注入到 UI store */
 async function bootstrap() {
-  const storage = new InMemoryAdapter()
+  const storage = await IndexedDBAdapter.create()
   const eventBus = new EventBus()
   const llm = createLLM()
   const branchManager = new BranchManager(storage, eventBus)
@@ -153,12 +153,34 @@ async function bootstrap() {
     })
   }
 
-  // 创建根分支（事件会自动更新 store.branches）
-  const root = await branchManager.create({ label: '主线对话' })
+  // 加载已有分支或创建根分支
+  let root: Awaited<ReturnType<typeof branchManager.create>>
+  try {
+    root = await branchManager.getRoot()
+  } catch {
+    // 首次访问，创建根分支
+    root = await branchManager.create({ label: '主线对话' })
+  }
+
+  // 加载所有已有分支到 store
+  const allBranches = await storage.branches.listAll()
+  const branchesMap: Record<string, typeof root> = {}
+  for (const b of allBranches) {
+    branchesMap[b.id] = b
+  }
+
+  // 加载每个分支的消息
+  const messagesByBranch: Record<string, Awaited<ReturnType<typeof messageStore.getByBranch>>> = {}
+  for (const b of allBranches) {
+    const msgs = await messageStore.getByBranch(b.id)
+    if (msgs.length > 0) {
+      messagesByBranch[b.id] = msgs
+    }
+  }
 
   // 初始化分支树
   const tree = await branchManager.getTree()
-  useDriftStore.setState({ tree })
+  useDriftStore.setState({ tree, branches: branchesMap, messagesByBranch })
 
   // 设置初始活跃分支
   store.switchBranch(root.id)
