@@ -4,6 +4,8 @@ import { createPortal } from 'react-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useDriftStore } from '../../store/drift-store'
+import { AI_QBERT_GRID, TRANSPARENT as _ } from '../../constants/pixel-art'
+import type { PixelGrid } from '../../constants/pixel-art'
 import type { Message, Branch } from '@drift/storage'
 
 interface MessageContextMenu { x: number; y: number; messageId: string }
@@ -110,9 +112,6 @@ function ThinkingBlock({ content, onDone }: { content: string; onDone: () => voi
 
 // ---- 像素动物头像系统 ----
 
-type PixelGrid = string[][]
-const _ = 'transparent'
-
 function PixelIcon({ grid, size = 32 }: { grid: PixelGrid; size?: number }) {
   const h = grid.length
   const w = grid[0].length
@@ -174,23 +173,6 @@ const AVATARS: Record<string, { name: string; grid: PixelGrid }> = {
   })() },
 }
 
-/** AI 头像 — 像素版 Q*bert */
-const AI_QBERT_GRID: PixelGrid = (() => {
-  const o='#E02020',k='#222'
-  return [
-    [_,_,o,o,o,o,o,o,_,_,_,_,_,_],
-    [_,o,o,o,o,o,o,o,o,_,_,_,_,_],
-    [o,o,o,o,o,o,o,o,o,o,_,_,_,_],
-    [o,o,o,o,o,o,o,o,o,o,_,_,_,_],
-    [o,o,o,k,o,o,o,k,o,o,o,o,o,k],
-    [o,o,o,o,o,o,o,o,o,o,o,o,o,k],
-    [_,o,o,o,o,o,o,o,o,o,_,_,_,_],
-    [_,_,o,o,o,o,o,o,o,_,_,_,_,_],
-    [_,_,_,o,o,_,o,o,_,_,_,_,_,_],
-    [_,_,_,o,_,_,_,o,_,_,_,_,_,_],
-    [_,_,o,o,_,_,_,o,o,_,_,_,_,_],
-  ]
-})()
 
 /** 头像选择器 */
 function AvatarPicker() {

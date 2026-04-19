@@ -7,9 +7,8 @@
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck"
   },
-  "devDependencies": {},
-  "dependencies": {
-    "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1"
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "playwright": "^1.59.1"
   }
 }

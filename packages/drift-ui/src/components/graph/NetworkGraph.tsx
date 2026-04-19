@@ -12,6 +12,7 @@ import {
 import { select } from 'd3-selection'
 import { zoom, type ZoomBehavior, type ZoomTransform } from 'd3-zoom'
 import { useDriftStore } from '../../store/drift-store'
+import { AI_QBERT_GRID, TRANSPARENT as _t } from '../../constants/pixel-art'
 import type { BranchTreeNode } from '@drift/storage'
 
 // ─── 类型定义 ───
@@ -50,25 +51,6 @@ const STATUS_COLORS: Record<string, string> = {
   concluded: '#10B981',
 }
 
-/** Q*bert 像素数据（和 MessageList 中一致） */
-const _t = 'transparent'
-const QBERT_PIXELS: string[][] = (() => {
-  const o='#E02020',k='#222'
-  return [
-    [_t,_t,o,o,o,o,o,o,_t,_t,_t,_t,_t,_t],
-    [_t,o,o,o,o,o,o,o,o,_t,_t,_t,_t,_t],
-    [o,o,o,o,o,o,o,o,o,o,_t,_t,_t,_t],
-    [o,o,o,o,o,o,o,o,o,o,_t,_t,_t,_t],
-    [o,o,o,k,o,o,o,k,o,o,o,o,o,k],
-    [o,o,o,o,o,o,o,o,o,o,o,o,o,k],
-    [_t,o,o,o,o,o,o,o,o,o,_t,_t,_t,_t],
-    [_t,_t,o,o,o,o,o,o,o,_t,_t,_t,_t,_t],
-    [_t,_t,_t,o,o,o,o,_t,_t,_t,_t,_t,_t,_t],
-    [_t,_t,_t,o,o,_t,o,o,_t,_t,_t,_t,_t,_t],
-    [_t,_t,_t,o,_t,_t,_t,o,_t,_t,_t,_t,_t,_t],
-    [_t,_t,o,o,_t,_t,_t,o,o,_t,_t,_t,_t,_t],
-  ]
-})()
 
 /** 根据消息数计算节点半径 */
 function computeRadius(messageCount: number): number {
@@ -349,7 +331,6 @@ export function NetworkGraph() {
 
             const isActive = activeBranchId === node.id
             const isHovered = hoveredNode === node.id
-            const color = STATUS_COLORS[node.status] ?? STATUS_COLORS.active
             const isArchived = node.status === 'archived'
             const r = isHovered ? node.radius * 1.15 : node.radius
             const summary = nodeSummaries[node.id]
@@ -370,7 +351,7 @@ export function NetworkGraph() {
                   opacity={isArchived ? 0.3 : (isHovered ? 1 : 0.9)}
                   style={{ transition: 'opacity 0.2s ease' }}
                 >
-                  {QBERT_PIXELS.map((row, py) => row.map((c, px) => c !== _t ? <rect key={`${px}-${py}`} x={px} y={py} width="1" height="1" fill={c} style={{ imageRendering: 'pixelated' }} /> : null))}
+                  {AI_QBERT_GRID.map((row, py) => row.map((c, px) => c !== _t ? <rect key={`${px}-${py}`} x={px} y={py} width="1" height="1" fill={c} style={{ imageRendering: 'pixelated' }} /> : null))}
                 </g>
 
 

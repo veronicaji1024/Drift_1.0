@@ -372,6 +372,23 @@ class IDBForkRecordStorage implements ForkRecordStorage {
     })
   }
 
+  async removeById(id: string): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction(STORES.forkRecords, 'readwrite')
+      const store = tx.objectStore(STORES.forkRecords)
+      const getReq = store.get(id)
+      getReq.onsuccess = () => {
+        if (getReq.result) {
+          store.delete(id)
+          resolve(true)
+        } else {
+          resolve(false)
+        }
+      }
+      getReq.onerror = () => reject(getReq.error)
+    })
+  }
+
   async list(limit?: number): Promise<ForkRecord[]> {
     const all = await getAllFromStore<ForkRecord>(this.db, STORES.forkRecords)
     const reversed = all.reverse()
