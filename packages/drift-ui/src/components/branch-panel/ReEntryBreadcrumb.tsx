@@ -25,14 +25,14 @@ export function ReEntryBreadcrumb({ branchId }: ReEntryBreadcrumbProps) {
   if (!currentTopic || dismissed) return null
 
   return (
-    <div className="mx-4 mt-3 mb-1 px-3 py-2 bg-indigo-50 border border-indigo-100 rounded-lg flex items-center gap-2">
-      <span className="text-indigo-400 text-sm">&#x21A9;</span>
-      <span className="text-sm text-indigo-700">
+    <div className="mx-4 mt-3 mb-1 px-3 py-2 bg-arc-primary/10 border border-arc-primary/30 rounded-xl flex items-center gap-2">
+      <span className="text-arc-primary text-sm">&#x21A9;</span>
+      <span className="text-sm text-arc-text">
         上次你在这里：
         <span className="font-medium">{currentTopic}</span>
       </span>
       <button
-        className="ml-auto text-indigo-400 hover:text-indigo-600 text-xs"
+        className="ml-auto text-arc-text-muted hover:text-arc-text text-xs"
         onClick={() => setDismissed(true)}
       >
         关闭

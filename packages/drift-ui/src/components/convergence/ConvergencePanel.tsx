@@ -80,12 +80,12 @@ export function ConvergencePanel() {
   if (!convergencePanelOpen) return null
 
   return (
-    <div className="w-80 h-full border-l border-gray-200 bg-white flex flex-col">
+    <div className="w-80 h-full border-l border-arc-border bg-arc-panel flex flex-col">
       {/* 标题栏 */}
-      <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-gray-700">收敛输出</h2>
+      <div className="px-4 py-3 border-b border-arc-border flex items-center justify-between">
+        <h2 className="text-sm font-pixel font-semibold text-arc-text">收敛输出</h2>
         <button
-          className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+          className="text-arc-text-muted hover:text-arc-text text-lg leading-none"
           onClick={toggleConvergencePanel}
         >
           &times;
@@ -95,20 +95,20 @@ export function ConvergencePanel() {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* 分支选择器 */}
         <div>
-          <h3 className="text-xs font-medium text-gray-500 mb-2">选择分支</h3>
+          <h3 className="text-xs font-pixel font-medium text-arc-text-muted mb-2">选择分支</h3>
           <div className="space-y-1 max-h-40 overflow-y-auto">
             {selectableBranches.map((branch) => (
               <label
                 key={branch.id}
-                className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer"
+                className="flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-arc-border/30 cursor-pointer"
               >
                 <input
                   type="checkbox"
-                  className="rounded border-gray-300 text-indigo-500 focus:ring-indigo-400"
+                  className="rounded border-arc-border text-arc-btn focus:ring-arc-primary"
                   checked={selectedBranches.has(branch.id)}
                   onChange={() => toggleBranch(branch.id)}
                 />
-                <span className="text-sm text-gray-700 truncate">{branch.label}</span>
+                <span className="text-sm text-arc-text truncate">{branch.label}</span>
               </label>
             ))}
           </div>
@@ -116,29 +116,29 @@ export function ConvergencePanel() {
 
         {/* 格式选择器 */}
         <div>
-          <h3 className="text-xs font-medium text-gray-500 mb-2">输出格式</h3>
+          <h3 className="text-xs font-pixel font-medium text-arc-text-muted mb-2">输出格式</h3>
           <div className="space-y-1">
             {FORMAT_OPTIONS.map((opt) => (
               <label
                 key={opt.value}
                 className={`
-                  flex flex-col px-3 py-2 rounded-lg border cursor-pointer transition-colors
+                  flex flex-col px-3 py-2 rounded-xl border cursor-pointer transition-colors
                   ${selectedFormat === opt.value
-                    ? 'border-indigo-300 bg-indigo-50'
-                    : 'border-gray-200 hover:border-gray-300'}
+                    ? 'border-arc-primary bg-arc-primary/10'
+                    : 'border-arc-border hover:border-arc-primary/50'}
                 `}
               >
                 <div className="flex items-center gap-2">
                   <input
                     type="radio"
                     name="format"
-                    className="text-indigo-500 focus:ring-indigo-400"
+                    className="text-arc-btn focus:ring-arc-primary"
                     checked={selectedFormat === opt.value}
                     onChange={() => setSelectedFormat(opt.value)}
                   />
-                  <span className="text-sm font-medium text-gray-700">{opt.label}</span>
+                  <span className="text-sm font-medium text-arc-text">{opt.label}</span>
                 </div>
-                <span className="text-xs text-gray-500 ml-6">{opt.description}</span>
+                <span className="text-xs text-arc-text-muted ml-6">{opt.description}</span>
               </label>
             ))}
           </div>
@@ -147,8 +147,8 @@ export function ConvergencePanel() {
         {/* 生成按钮 */}
         <button
           className="
-            w-full py-2.5 bg-indigo-500 text-white text-sm font-medium rounded-lg
-            hover:bg-indigo-600 active:bg-indigo-700
+            w-full py-2.5 bg-arc-btn text-white text-sm font-pixel font-medium rounded-xl
+            hover:bg-arc-btn-hover active:bg-arc-btn-hover
             disabled:opacity-40 disabled:cursor-not-allowed
             transition-colors
           "
@@ -160,26 +160,26 @@ export function ConvergencePanel() {
 
         {/* 错误提示 */}
         {convergenceError && (
-          <div className="px-3 py-2 bg-red-50 border border-red-100 rounded-lg text-sm text-red-600">
+          <div className="px-3 py-2 bg-arc-error/30 border border-arc-error rounded-xl text-sm text-arc-text">
             {convergenceError}
           </div>
         )}
 
         {/* 结果展示 */}
         {convergenceResult && (
-          <div className="border border-gray-200 rounded-lg">
-            <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
-              <span className="text-xs font-medium text-gray-500">生成结果</span>
+          <div className="border border-arc-border rounded-xl">
+            <div className="px-3 py-2 border-b border-arc-border/50 flex items-center justify-between">
+              <span className="text-xs font-pixel font-medium text-arc-text-muted">生成结果</span>
               <div className="flex gap-1">
                 <button
-                  className="text-xs text-indigo-500 hover:text-indigo-700"
+                  className="text-xs text-arc-primary hover:text-arc-btn"
                   onClick={handleCopy}
                 >
                   复制
                 </button>
               </div>
             </div>
-            <div className="px-3 py-2 text-sm text-gray-700 whitespace-pre-wrap max-h-60 overflow-y-auto">
+            <div className="px-3 py-2 text-sm text-arc-text whitespace-pre-wrap max-h-60 overflow-y-auto">
               {convergenceResult.content}
             </div>
           </div>

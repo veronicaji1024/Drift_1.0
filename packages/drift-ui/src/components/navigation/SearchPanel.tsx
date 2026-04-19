@@ -17,7 +17,7 @@ function highlightMatch(text: string, query: string): JSX.Element {
   return (
     <>
       {text.slice(0, idx)}
-      <mark className="bg-yellow-200 text-yellow-900 rounded px-0.5">
+      <mark className="bg-arc-accent/30 text-arc-text rounded px-0.5">
         {text.slice(idx, idx + query.length)}
       </mark>
       {text.slice(idx + query.length)}
@@ -52,22 +52,22 @@ export function SearchPanel() {
   return (
     <div className="fixed inset-0 z-40 flex items-start justify-center pt-20">
       {/* 背景遮罩 */}
-      <div className="absolute inset-0 bg-black/20" onClick={handleClose} />
+      <div className="absolute inset-0 bg-arc-btn/10" onClick={handleClose} />
 
       {/* 搜索内容 */}
-      <div className="relative w-full max-w-lg mx-4 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
+      <div className="relative w-full max-w-lg mx-4 bg-arc-panel rounded-xl shadow-2xl border border-arc-border overflow-hidden">
         {/* 搜索输入框 */}
-        <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
-          <span className="text-gray-400 text-sm">&#x1F50D;</span>
+        <div className="px-4 py-3 border-b border-arc-border/50 flex items-center gap-2">
+          <span className="text-arc-text-muted text-sm">&#x1F50D;</span>
           <input
-            className="flex-1 text-sm text-gray-800 placeholder-gray-400 outline-none"
+            className="flex-1 text-sm text-arc-text placeholder-arc-text-muted/50 outline-none bg-transparent"
             placeholder="搜索所有分支..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             autoFocus
           />
           <button
-            className="text-gray-400 hover:text-gray-600 text-sm"
+            className="text-arc-text-muted hover:text-arc-text text-sm"
             onClick={handleClose}
           >
             ESC
@@ -77,20 +77,20 @@ export function SearchPanel() {
         {/* 搜索结果 */}
         <div className="max-h-80 overflow-y-auto">
           {results.length === 0 ? (
-            <div className="px-4 py-6 text-center text-sm text-gray-400">
+            <div className="px-4 py-6 text-center text-sm text-arc-text-muted">
               未找到匹配结果
             </div>
           ) : (
-            <div className="divide-y divide-gray-50">
+            <div className="divide-y divide-arc-border/30">
               {results.slice(0, 20).map((r, idx) => (
                 <button
                   key={`${r.branchId}-${r.matchedField}-${idx}`}
-                  className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors"
+                  className="w-full text-left px-4 py-3 hover:bg-arc-border/20 transition-colors"
                   onClick={() => handleResultClick(r.branchId)}
                 >
                   <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-xs font-medium text-indigo-500">{r.branchLabel}</span>
-                    <span className="text-xs text-gray-400">{r.matchedField}</span>
+                    <span className="text-xs font-medium text-arc-primary">{r.branchLabel}</span>
+                    <span className="text-xs text-arc-text-muted">{r.matchedField}</span>
                   </div>
                   <p className="text-sm text-gray-700 truncate">
                     {highlightMatch(r.matchedText, searchQuery)}

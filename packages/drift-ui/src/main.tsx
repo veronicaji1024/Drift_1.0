@@ -1,4 +1,5 @@
 /** Drift 开发入口 — 初始化 core 服务并挂载 React 应用 */
+import './index.css'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { IndexedDBAdapter } from '@drift/storage'
@@ -127,6 +128,13 @@ function createLLM(): LLMAdapter {
 
 /** 初始化所有 core 服务并注入到 UI store */
 async function bootstrap() {
+  // 清除旧数据，避免 mock 分支越刷越多
+  const dbNames = await indexedDB.databases()
+  for (const db of dbNames) {
+    if (db.name) indexedDB.deleteDatabase(db.name)
+  }
+  await new Promise((r) => setTimeout(r, 100))
+
   const storage = await IndexedDBAdapter.create()
   const eventBus = new EventBus()
   const llm = createLLM()

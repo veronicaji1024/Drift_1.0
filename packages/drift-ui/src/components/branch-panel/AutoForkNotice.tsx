@@ -55,30 +55,30 @@ export function AutoForkNotice({ sourceBranchId }: { sourceBranchId?: string }) 
   return (
     <div
       className={`
-        mx-4 mt-2 px-4 py-2.5 bg-emerald-50 border border-emerald-100 rounded-lg
+        mx-4 mt-2 px-4 py-2.5 bg-arc-success/30 border border-arc-success rounded-xl
         flex items-center gap-3 transition-all duration-300
         ${isExiting ? 'opacity-0 -translate-y-2' : 'opacity-100 translate-y-0'}
       `}
     >
-      <span className="text-emerald-600 text-sm flex-1">
+      <span className="text-arc-text text-sm flex-1">
         已为你开了新分支「<span className="font-medium">{notice.label}</span>」
       </span>
 
       <div className="flex items-center gap-2 flex-shrink-0">
         <button
-          className="text-xs px-2.5 py-1 bg-emerald-500 text-white rounded hover:bg-emerald-600 transition-colors"
+          className="text-xs font-pixel px-2.5 py-1 bg-arc-btn text-white rounded-xl hover:bg-arc-btn-hover transition-colors"
           onClick={handleContinue}
         >
           继续聊
         </button>
         <button
-          className="text-xs px-2.5 py-1 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+          className="text-xs px-2.5 py-1 text-arc-text-muted hover:text-arc-text hover:bg-arc-border/30 rounded-xl transition-colors"
           onClick={handleUndo}
         >
           撤销
         </button>
         <button
-          className="text-xs px-2.5 py-1 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+          className="text-xs px-2.5 py-1 text-arc-text-muted hover:text-arc-text hover:bg-arc-border/30 rounded-xl transition-colors"
           onClick={handleRename}
         >
           改名

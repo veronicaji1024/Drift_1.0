@@ -56,14 +56,14 @@ export function ChatInput({ branchId }: ChatInputProps) {
   )
 
   return (
-    <div className="border-t border-gray-200 bg-white/80 backdrop-blur-sm">
+    <div className="border-t border-arc-border bg-arc-panel/80 backdrop-blur-sm">
       {/* 导航建议浮层 */}
       {topSuggestion && (
-        <div className="mx-3 mt-2 px-3 py-1.5 bg-amber-50 border border-amber-100 rounded-lg flex items-center gap-2 text-xs">
-          <span className="text-amber-500">&#x2192;</span>
-          <span className="text-amber-700 flex-1 truncate">
+        <div className="mx-3 mt-2 px-3 py-1.5 bg-arc-warn/30 border border-arc-warn rounded-xl flex items-center gap-2 text-xs">
+          <span className="text-arc-text-muted">&#x2192;</span>
+          <span className="text-arc-text flex-1 truncate">
             {topSuggestion.reasoning}
-            <span className="text-amber-500 ml-1">
+            <span className="text-arc-text-muted ml-1">
               ({topSuggestion.action}: {topSuggestion.target})
             </span>
           </span>
@@ -76,9 +76,9 @@ export function ChatInput({ branchId }: ChatInputProps) {
           ref={textareaRef}
           autoFocus
           className="
-            flex-1 resize-none rounded-lg border border-gray-300 px-3 py-2
-            text-sm text-gray-800 placeholder-gray-400
-            focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400
+            flex-1 resize-none rounded-xl border border-arc-border px-3 py-2
+            text-sm text-arc-text placeholder-arc-text-muted/50
+            focus:outline-none focus:ring-2 focus:ring-arc-primary/40 focus:border-arc-primary
             transition-shadow min-h-[36px] max-h-[100px]
             disabled:opacity-50 disabled:cursor-not-allowed
           "
@@ -91,8 +91,8 @@ export function ChatInput({ branchId }: ChatInputProps) {
         />
         <button
           className="
-            px-3 py-2 bg-indigo-500 text-white text-sm font-medium rounded-lg
-            hover:bg-indigo-600 active:bg-indigo-700
+            px-3 py-2 bg-arc-btn text-white text-sm font-pixel font-medium rounded-xl
+            hover:bg-arc-btn-hover active:bg-arc-btn-hover
             disabled:opacity-40 disabled:cursor-not-allowed
             transition-colors flex-shrink-0
           "

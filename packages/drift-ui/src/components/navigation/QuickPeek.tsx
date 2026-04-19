@@ -39,16 +39,16 @@ export function QuickPeek() {
   return (
     <div className="fixed z-50 bottom-20 right-8">
       <div
-        className="bg-white border border-gray-200 rounded-xl shadow-xl w-72 overflow-hidden"
+        className="bg-arc-panel border border-arc-border rounded-xl shadow-xl w-72 overflow-hidden"
         onMouseLeave={handleClose}
       >
         {/* 标题 */}
-        <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-          <span className="text-sm font-medium text-gray-800 truncate">
+        <div className="px-4 py-3 border-b border-arc-border/50 flex items-center justify-between">
+          <span className="text-sm font-pixel font-medium text-arc-text truncate">
             {branch?.label ?? quickPeekBranchId}
           </span>
           <button
-            className="text-gray-400 hover:text-gray-600 text-xs"
+            className="text-arc-text-muted hover:text-arc-text text-xs"
             onClick={handleClose}
           >
             &times;
@@ -59,20 +59,20 @@ export function QuickPeek() {
         <div className="px-4 py-3 space-y-2">
           {/* 主题句 */}
           {topicSentence && (
-            <p className="text-sm text-gray-700">{topicSentence}</p>
+            <p className="text-sm text-arc-text">{topicSentence}</p>
           )}
 
           {/* 最新 observation 摘要 */}
           {latestObs && (
             <div className="space-y-1">
               {latestObs.topic && (
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-arc-text-muted">
                   <span className="font-medium">当前话题：</span>
                   {latestObs.topic}
                 </div>
               )}
               {latestObs.stage && (
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-arc-text-muted">
                   <span className="font-medium">阶段：</span>
                   {latestObs.stage}
                 </div>
@@ -82,7 +82,7 @@ export function QuickPeek() {
                   {latestObs.keyPoints.slice(0, 4).map((point, i) => (
                     <span
                       key={i}
-                      className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded"
+                      className="text-xs bg-arc-border/30 text-arc-text-muted px-1.5 py-0.5 rounded-xl"
                     >
                       {point}
                     </span>
@@ -93,14 +93,14 @@ export function QuickPeek() {
           )}
 
           {!topicSentence && !latestObs && (
-            <p className="text-xs text-gray-400">暂无摘要信息</p>
+            <p className="text-xs text-arc-text-muted">暂无摘要信息</p>
           )}
         </div>
 
         {/* 跳转按钮 */}
-        <div className="px-4 py-2 border-t border-gray-100">
+        <div className="px-4 py-2 border-t border-arc-border/50">
           <button
-            className="w-full text-center text-xs text-indigo-500 hover:text-indigo-700 font-medium py-1"
+            className="w-full text-center text-xs text-arc-primary hover:text-arc-btn font-pixel font-medium py-1"
             onClick={handleNavigate}
           >
             跳转

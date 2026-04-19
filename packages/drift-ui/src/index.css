@@ -1,0 +1,141 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Microsoft YaHei — self-hosted ── */
+@font-face {
+  font-family: 'Microsoft YaHei';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/msyh.ttf') format('truetype');
+}
+
+body, body * {
+  font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+}
+.font-pixel { font-family: "Pixelify Sans", cursive !important; }
+.font-arcade { font-family: "Press Start 2P", cursive !important; }
+
+/* ── Pixel Fonts ── */
+
+@font-face {
+  font-family: 'Press Start 2P';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/PressStart2P.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Pixelify Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/PixelifySans-Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Pixelify Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/PixelifySans-Medium.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Pixelify Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/PixelifySans-SemiBold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Pixelify Sans';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/PixelifySans-Bold.ttf') format('truetype');
+}
+
+/* ── CRT TV Bezel ── */
+
+.crt-bezel {
+  padding: 18px;
+  border-radius: 24px;
+  background: linear-gradient(
+    135deg,
+    #A89CC8 0%,
+    #C4BBD8 30%,
+    #D4CCE6 60%,
+    #B8AED8 100%
+  );
+  box-shadow:
+    0 8px 32px rgba(42, 36, 56, 0.35),
+    0 2px 8px rgba(42, 36, 56, 0.2),
+    inset 0 2px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -2px 0 rgba(42, 36, 56, 0.25);
+}
+
+.crt-screen {
+  border-radius: 12px;
+  border: 3px solid #4A2D7A;
+  position: relative;
+  overflow: hidden;
+}
+
+
+/* ── CRT Scanlines ── */
+
+.arcade-scanlines {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 9999;
+  border-radius: 12px;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(42, 36, 56, 0.006) 2px,
+    rgba(42, 36, 56, 0.006) 4px
+  );
+}
+
+/* ── Pixel border utility ── */
+
+.pixel-border {
+  box-shadow:
+    2px 0 0 0 #D4CCE6,
+    -2px 0 0 0 #D4CCE6,
+    0 2px 0 0 #D4CCE6,
+    0 -2px 0 0 #D4CCE6;
+}
+
+/* ── Pac-Man Animations ── */
+
+@keyframes pacman-traverse {
+  0%   { transform: translateX(-30px); }
+  100% { transform: translateX(calc(100vw - 30px)); }
+}
+
+@keyframes pacman-chomp {
+  0%, 100% { clip-path: polygon(100% 0%, 35% 50%, 100% 100%, 0% 100%, 0% 0%); }
+  50%      { clip-path: polygon(100% 0%, 10% 50%, 100% 100%, 0% 100%, 0% 0%); }
+}
+
+@keyframes ghost-patrol {
+  0%   { transform: translateX(calc(100vw - 30px)); }
+  100% { transform: translateX(-30px); }
+}
+
+@keyframes ghost-wobble {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
+}
+
+@keyframes dot-pulse {
+  0%, 100% { opacity: 0.2; }
+  50%      { opacity: 0.5; }
+}

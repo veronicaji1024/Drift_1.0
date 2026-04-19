@@ -39,14 +39,14 @@ export const BEAN_HIGHLIGHT: boolean[][] = [
   [false, false, false, false, false, false, false],
 ]
 
-/** 支线豆子颜色表（按 depth 索引） */
+/** 支线豆子颜色表（arcade 色系，按 depth 索引） */
 const DEPTH_COLORS = [
   '#E02020',   // depth 0: root (Q*bert 本体)
-  '#E02020',   // depth 1: 大红豆
-  '#F5A623',   // depth 2: 金黄豆
-  '#4CAF50',   // depth 3: 绿豆
-  '#42A5F5',   // depth 4: 蓝豆
-  '#AB47BC',   // depth 5: 紫豆
+  '#E02020',   // depth 1: 红豆
+  '#E0467C',   // depth 2: 粉豆
+  '#2EAD4B',   // depth 3: 绿豆
+  '#2196F3',   // depth 4: 蓝豆
+  '#F5A623',   // depth 5: 黄豆
 ]
 
 export function getDepthColor(depth: number): string {
@@ -54,3 +54,38 @@ export function getDepthColor(depth: number): string {
   const idx = ((depth - 1) % (DEPTH_COLORS.length - 1)) + 1
   return DEPTH_COLORS[idx]
 }
+
+/** 吃豆人像素网格 (9×9) — 右朝向张嘴 */
+export const PACMAN_GRID: PixelGrid = (() => {
+  const y = '#F5D6A0'
+  return [
+    [_, _, _, y, y, y, _, _, _],
+    [_, _, y, y, y, y, y, _, _],
+    [_, y, y, y, y, y, _, _, _],
+    [y, y, y, y, y, _, _, _, _],
+    [y, y, y, y, _, _, _, _, _],
+    [y, y, y, y, y, _, _, _, _],
+    [_, y, y, y, y, y, _, _, _],
+    [_, _, y, y, y, y, y, _, _],
+    [_, _, _, y, y, y, _, _, _],
+  ]
+})()
+
+/** 幽灵像素网格 (9×9) — 粉色经典幽灵 */
+export const GHOST_GRID: PixelGrid = (() => {
+  const p = '#E8A0BF', w = '#FFF', e = '#4A4063'
+  return [
+    [_, _, _, p, p, p, _, _, _],
+    [_, _, p, p, p, p, p, _, _],
+    [_, p, p, p, p, p, p, p, _],
+    [_, p, w, e, p, w, e, p, _],
+    [_, p, w, e, p, w, e, p, _],
+    [_, p, p, p, p, p, p, p, _],
+    [_, p, p, p, p, p, p, p, _],
+    [_, p, p, p, p, p, p, p, _],
+    [_, p, _, p, _, p, _, p, _],
+  ]
+})()
+
+/** 豆点常量 */
+export const PAC_DOT = { size: 4, color: '#B8AED8' } as const

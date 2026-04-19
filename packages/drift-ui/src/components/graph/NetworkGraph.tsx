@@ -376,7 +376,7 @@ export function NetworkGraph() {
                       y={cy - dotSize / 2}
                       width={dotSize}
                       height={dotSize}
-                      fill="#6366F1"
+                      fill="#B8AED8"
                       style={{ imageRendering: 'pixelated' }}
                     />
                   )
@@ -425,7 +425,7 @@ export function NetworkGraph() {
                     opacity={isArchived ? 0.3 : (isHovered ? 1 : 0.85)}
                     style={{
                       transition: 'opacity 0.2s ease',
-                      filter: isActive ? 'drop-shadow(0 0 2px #6366F1) drop-shadow(0 0 4px #6366F1)' : undefined,
+                      filter: isActive ? 'drop-shadow(0 0 2px #9B8EC4) drop-shadow(0 0 4px #9B8EC4)' : undefined,
                     }}
                   >
                     {BEAN_SHAPE.map((row, py) =>
@@ -450,7 +450,7 @@ export function NetworkGraph() {
                   y={r + 16}
                   textAnchor="middle"
                   className="select-none pointer-events-none"
-                  fill="#5C5349"
+                  fill="#4A4063"
                   fontSize={11}
                   fontWeight={isActive ? 600 : 400}
                 >
@@ -463,7 +463,7 @@ export function NetworkGraph() {
                     y={r + 28}
                     textAnchor="middle"
                     className="select-none pointer-events-none"
-                    fill="#A09888"
+                    fill="#8B7FA8"
                     fontSize={9}
                     fontStyle="italic"
                   >
@@ -477,7 +477,7 @@ export function NetworkGraph() {
                     y={r + (summary ? 40 : 28)}
                     textAnchor="middle"
                     className="select-none pointer-events-none"
-                    fill="#B8B0A4"
+                    fill="#8B7FA8"
                     fontSize={9}
                   >
                     {node.messageCount} 条
@@ -492,27 +492,27 @@ export function NetworkGraph() {
       {/* 右键菜单 */}
       {contextMenu && (
         <div
-          className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[140px]"
+          className="fixed z-50 bg-arc-panel border border-arc-border rounded-xl shadow-lg py-1 min-w-[140px]"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
-          <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          <button className="w-full text-left px-4 py-2 text-sm text-arc-text hover:bg-arc-border/30"
             onClick={() => { switchBranch(contextMenu.branchId); closeContextMenu() }}>
             查看对话
           </button>
-          <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={handleRename}>
+          <button className="w-full text-left px-4 py-2 text-sm text-arc-text hover:bg-arc-border/30" onClick={handleRename}>
             重命名
           </button>
-          <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={handleMerge}>
+          <button className="w-full text-left px-4 py-2 text-sm text-arc-text hover:bg-arc-border/30" onClick={handleMerge}>
             合并到...
           </button>
-          <button className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50" onClick={handleArchive}>
+          <button className="w-full text-left px-4 py-2 text-sm text-arc-error hover:bg-arc-error/20" onClick={handleArchive}>
             归档
           </button>
         </div>
       )}
 
       {/* 提示文字 */}
-      <div className="absolute bottom-4 left-4 text-xs text-gray-400 pointer-events-none select-none">
+      <div className="absolute bottom-4 left-4 text-xs text-arc-text-muted/50 font-pixel pointer-events-none select-none">
         点击节点查看对话 · 右键更多操作 · 滚轮缩放 · 拖拽平移
       </div>
     </div>

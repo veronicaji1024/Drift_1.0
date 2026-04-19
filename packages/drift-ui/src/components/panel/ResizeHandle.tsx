@@ -40,7 +40,7 @@ export function ResizeHandle({ onResize, onDoubleClick }: ResizeHandleProps) {
     <div
       className={`
         w-1 flex-shrink-0 cursor-col-resize transition-colors duration-150
-        ${active ? 'bg-indigo-400' : 'bg-gray-200 hover:bg-gray-400'}
+        ${active ? 'bg-arc-btn' : 'bg-arc-border hover:bg-arc-primary'}
       `}
       onMouseDown={handleMouseDown}
       onDoubleClick={onDoubleClick}

@@ -28,42 +28,42 @@ export function ConversationPanel({ width, visible, onToggle }: ConversationPane
 
   // 状态颜色
   const statusColor = branch?.status === 'active'
-    ? 'bg-indigo-400'
+    ? 'bg-arc-primary'
     : branch?.status === 'idle'
-      ? 'bg-gray-400'
-      : 'bg-gray-300'
+      ? 'bg-arc-dot'
+      : 'bg-arc-border'
 
   return (
     <div
-      className="h-full flex flex-col bg-white/95 backdrop-blur-md border-l border-gray-200/80 overflow-hidden transition-all duration-300 ease-out"
+      className="h-full flex flex-col bg-arc-panel/95 backdrop-blur-md border-l border-arc-border overflow-hidden transition-all duration-300 ease-out"
       style={{ width: visible ? width : 0, minWidth: visible ? 320 : 0 }}
     >
       {visible && (
         <>
           {/* 标题栏 */}
-          <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2 select-none bg-gray-50/80 flex-shrink-0">
+          <div className="px-4 py-2.5 border-b border-arc-border/50 flex items-center gap-2 select-none bg-arc-panel/80 flex-shrink-0">
             {/* 状态指示 */}
             {activeBranchId && (
               <span className={`w-2 h-2 rounded-full ${statusColor} flex-shrink-0`} />
             )}
 
             {/* 分支名称 */}
-            <h3 className="text-sm font-medium text-gray-800 truncate flex-1">
+            <h3 className="text-sm font-pixel font-medium text-arc-text truncate flex-1">
               {branch?.label ?? (activeBranchId ? '未命名分支' : '')}
             </h3>
 
             {/* Loading 动画 */}
             {isLoading && (
               <div className="flex items-center gap-0.5">
-                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '100ms' }} />
-                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '200ms' }} />
+                <span className="w-1.5 h-1.5 bg-arc-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-1.5 h-1.5 bg-arc-primary rounded-full animate-bounce" style={{ animationDelay: '100ms' }} />
+                <span className="w-1.5 h-1.5 bg-arc-primary rounded-full animate-bounce" style={{ animationDelay: '200ms' }} />
               </div>
             )}
 
             {/* 隐藏按钮 */}
             <button
-              className="text-gray-400 hover:text-gray-600 text-xs px-1.5 py-0.5 rounded hover:bg-gray-100 transition-colors"
+              className="text-arc-text-muted hover:text-arc-text text-xs px-1.5 py-0.5 rounded-xl hover:bg-arc-border/30 transition-colors"
               onClick={onToggle}
               title="隐藏面板"
             >
@@ -95,9 +95,9 @@ export function ConversationPanel({ width, visible, onToggle }: ConversationPane
           ) : (
             /* 空状态 */
             <div className="flex-1 flex items-center justify-center">
-              <div className="text-center text-gray-400">
+              <div className="text-center text-arc-text-muted">
                 <div className="text-4xl mb-3 opacity-30">&#x2B50;</div>
-                <p className="text-sm">点击左侧节点开始对话</p>
+                <p className="text-sm font-pixel">点击左侧节点开始对话</p>
               </div>
             </div>
           )}

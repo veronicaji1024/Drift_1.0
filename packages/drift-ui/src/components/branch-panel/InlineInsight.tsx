@@ -43,21 +43,21 @@ export function InlineInsight({ connection, currentBranchId }: InlineInsightProp
   if (relatedBranchIds.length === 0) return null
 
   return (
-    <div className="mx-4 my-2 px-3 py-2 bg-purple-50 border border-purple-100 rounded-lg">
+    <div className="mx-4 my-2 px-3 py-2 bg-arc-accent/15 border border-arc-accent/40 rounded-xl">
       <div className="flex items-start gap-2">
-        <span className="text-purple-400 flex-shrink-0 mt-0.5" aria-hidden="true">
+        <span className="text-arc-accent flex-shrink-0 mt-0.5" aria-hidden="true">
           &#x1F4A1;
         </span>
         <div className="flex-1 min-w-0">
-          <p className="text-sm text-purple-700 font-medium">{connection.nature}</p>
-          <p className="text-xs text-purple-600 mt-0.5">{connection.significance}</p>
+          <p className="text-sm text-arc-text font-medium">{connection.nature}</p>
+          <p className="text-xs text-arc-text-muted mt-0.5">{connection.significance}</p>
           <div className="mt-1 flex flex-wrap gap-1">
             {relatedBranchIds.map((branchId) => {
               const label = branches[branchId]?.label ?? branchId
               return (
                 <button
                   key={branchId}
-                  className="text-xs text-purple-500 hover:text-purple-700 hover:underline"
+                  className="text-xs text-arc-primary hover:text-arc-btn hover:underline"
                   onMouseEnter={() => handleMouseEnter(branchId)}
                   onMouseLeave={handleMouseLeave}
                   onClick={() => handleNavigate(branchId)}

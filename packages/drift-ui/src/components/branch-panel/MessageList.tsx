@@ -84,7 +84,7 @@ function ThinkingBlock({ content, onDone }: { content: string; onDone: () => voi
           <span className="italic">thinking</span>
         </button>
         {expanded && (
-          <div className="mt-1 pl-3 border-l-2 border-gray-200 text-xs text-gray-400 whitespace-pre-wrap leading-relaxed italic">{content}</div>
+          <div className="mt-1 pl-3 border-l-2 border-arc-border text-xs text-arc-text-muted whitespace-pre-wrap leading-relaxed italic">{content}</div>
         )}
       </div>
     )
@@ -97,10 +97,10 @@ function ThinkingBlock({ content, onDone }: { content: string; onDone: () => voi
         @keyframes think-out { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-8px); } }
       `}</style>
       <div className="flex items-center gap-1.5">
-        <span className="inline-block w-1.5 h-1.5 rounded-full bg-gray-400 animate-pulse flex-shrink-0" />
+        <span className="inline-block w-1.5 h-1.5 rounded-full bg-arc-primary animate-pulse flex-shrink-0" />
         <span
           key={current}
-          className="text-xs text-gray-400 italic truncate"
+          className="text-xs text-arc-text-muted italic truncate"
           style={{ animation: 'think-in 0.25s ease-out' }}
         >
           {sentences[current] ?? ''}
@@ -180,11 +180,11 @@ function AvatarPicker() {
   const avatarKeys = Object.keys(AVATARS)
 
   return (
-    <div className="flex items-center justify-center h-full bg-[#F5F5F5]">
-      <div className="bg-indigo-400/15 rounded-2xl shadow-[0_4px_20px_rgba(99,102,241,0.1)] p-6 max-w-sm mx-4 border border-indigo-200/30">
+    <div className="flex items-center justify-center h-full bg-white">
+      <div className="bg-arc-panel/80 rounded-2xl shadow-[0_4px_20px_rgba(155,142,196,0.15)] p-6 max-w-sm mx-4 border border-arc-border">
         <div className="text-center mb-5">
-          <div className="text-base font-medium text-gray-700 mb-1">选一个你的分身</div>
-          <div className="text-xs text-gray-400">它会在对话里代表你</div>
+          <div className="text-base font-pixel font-medium text-arc-text mb-1">选一个你的分身</div>
+          <div className="text-xs text-arc-text-muted">它会在对话里代表你</div>
         </div>
         <div className="grid grid-cols-4 gap-3">
           {avatarKeys.map((key) => {
@@ -192,11 +192,11 @@ function AvatarPicker() {
             return (
               <button
                 key={key}
-                className="flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-[#F0F7FF] hover:shadow-sm transition-all active:scale-95"
+                className="flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-arc-border/30 hover:shadow-sm transition-all active:scale-95"
                 onClick={() => setUserAvatar(key)}
               >
                 <PixelIcon grid={a.grid} size={36} />
-                <span className="text-xs text-gray-500">{a.name}</span>
+                <span className="text-xs text-arc-text-muted">{a.name}</span>
               </button>
             )
           })}
@@ -248,14 +248,14 @@ function MessageItem({
         </div>
         <div className={`max-w-[75%] ${isUser ? 'items-end' : 'items-start'}`}>
           {thinking && <ThinkingBlock content={thinking} onDone={() => setThinkingDone(true)} />}
-          {showReply && <div className={`text-sm leading-relaxed px-3.5 py-2.5 animate-[fade-in_0.3s_ease-out] ${isUser ? 'bg-[#BDE0FE] text-gray-800 rounded-2xl rounded-tr-md shadow-[0_2px_8px_rgba(189,224,254,0.4)]' : 'bg-white text-gray-800 rounded-2xl rounded-tl-md shadow-[0_2px_8px_rgba(0,0,0,0.06)]'}`}>
+          {showReply && <div className={`text-sm leading-relaxed px-3.5 py-2.5 animate-[fade-in_0.3s_ease-out] ${isUser ? 'bg-arc-bubble text-gray-800 rounded-2xl rounded-tr-md shadow-[0_2px_8px_rgba(155,142,196,0.2)]' : 'bg-arc-panel text-arc-text rounded-2xl rounded-tl-md shadow-[0_2px_8px_rgba(155,142,196,0.12)]'}`}>
             {isUser ? reply : (
               <div className="prose prose-sm prose-gray max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-2 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-0.5 [&_p]:leading-relaxed [&_li]:leading-relaxed [&_strong]:text-gray-900 [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm [&_code]:text-xs [&_code]:bg-gray-100 [&_code]:px-1 [&_code]:rounded [&_pre]:bg-gray-50 [&_pre]:rounded-lg [&_pre]:text-xs [&_blockquote]:border-l-2 [&_blockquote]:border-gray-300 [&_blockquote]:pl-3 [&_blockquote]:text-gray-500 [&_table]:text-xs">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{reply}</ReactMarkdown>
               </div>
             )}
           </div>}
-          <div className={`text-xs text-gray-400 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity ${isUser ? 'text-right pr-1' : 'text-left pl-1'}`}>
+          <div className={`text-xs text-arc-text-muted mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity ${isUser ? 'text-right pr-1' : 'text-left pl-1'}`}>
             {new Date(message.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
           </div>
         </div>
@@ -283,9 +283,9 @@ function MessageMenu({ state, branches, currentBranchId, onClose }: {
   }, [state.messageId, branches, currentBranchId, moveMessage, onClose])
 
   return (
-    <div className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[160px]" style={{ left: state.x, top: state.y }}>
-      <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={handleMoveToSelect}>移动到其他分支...</button>
-      <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={onClose}>从这里开分支</button>
+    <div className="fixed z-50 bg-arc-panel border border-arc-border rounded-xl shadow-lg py-1 min-w-[160px]" style={{ left: state.x, top: state.y }}>
+      <button className="w-full text-left px-4 py-2 text-sm text-arc-text hover:bg-arc-border/30 rounded-lg" onClick={handleMoveToSelect}>移动到其他分支...</button>
+      <button className="w-full text-left px-4 py-2 text-sm text-arc-text hover:bg-arc-border/30 rounded-lg" onClick={onClose}>从这里开分支</button>
     </div>
   )
 }
@@ -297,9 +297,9 @@ function LoadingIndicator() {
       <div className="flex items-start gap-2 max-w-3xl mx-auto">
         <PixelIcon grid={AI_QBERT_GRID} />
         <div className="bg-white rounded-2xl rounded-tl-md shadow-[0_2px_8px_rgba(0,0,0,0.06)] px-3.5 py-2.5 flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-          <span className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-          <span className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+          <span className="w-1.5 h-1.5 bg-arc-dot rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+          <span className="w-1.5 h-1.5 bg-arc-dot rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+          <span className="w-1.5 h-1.5 bg-arc-dot rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
         </div>
       </div>
     </div>
@@ -309,8 +309,8 @@ function LoadingIndicator() {
 /** 错误提示卡片 */
 function ErrorCard({ message }: { message: string }) {
   return (
-    <div className="mx-4 my-2 px-3 py-2 bg-red-50 border border-red-100 rounded-lg">
-      <div className="flex items-center gap-2 text-sm text-red-600">
+    <div className="mx-4 my-2 px-3 py-2 bg-arc-error/30 border border-arc-error rounded-xl">
+      <div className="flex items-center gap-2 text-sm text-arc-text">
         <span>&#x26A0;</span>
         <span className="flex-1">{message}</span>
       </div>
@@ -451,6 +451,29 @@ function QbertSpitAnimation({ startRef, targetRef, containerRef }: {
           <PixelIcon grid={AI_QBERT_GRID} size={40} />
         </div>
 
+        {(phase === 'spit' || phase === 'back') && p && (
+          <div
+            style={{
+              position: 'absolute',
+              left: p.tx - 30,
+              top: p.ty - 36,
+              whiteSpace: 'nowrap',
+              fontSize: 12,
+              fontFamily: '"Pixelify Sans", cursive',
+              color: '#4A4063',
+              background: '#F8F6FC',
+              border: '1.5px solid #D4CCE6',
+              borderRadius: 8,
+              padding: '3px 10px',
+              boxShadow: '0 2px 8px rgba(155,142,196,0.15)',
+              opacity: phase === 'back' ? 0 : 1,
+              transition: 'opacity 0.3s',
+            }}
+          >
+            哦莫莫，开启新话题咯
+          </div>
+        )}
+
         {phase === 'spit' && p && beans.map((i) => (
           <div
             key={i}
@@ -461,7 +484,7 @@ function QbertSpitAnimation({ startRef, targetRef, containerRef }: {
               animation: 'bean-shoot 0.45s ease-out forwards',
             }}
           >
-            <div className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.5)]" />
+            <div className="w-2.5 h-2.5 rounded-full bg-arc-accent shadow-[0_0_6px_rgba(232,160,191,0.5)]" />
           </div>
         ))}
       </div>
@@ -506,7 +529,7 @@ export function MessageList({ branchId, messages }: MessageListProps) {
   const avatarGrid = AVATARS[userAvatar]?.grid ?? AVATARS.cat.grid
 
   return (
-    <div ref={listRef} className="flex-1 overflow-y-auto bg-[#F5F5F5] relative flex flex-col" onClick={closeContextMenu}>
+    <div ref={listRef} className="flex-1 overflow-y-auto bg-white relative flex flex-col" onClick={closeContextMenu}>
       <div className="py-2">
         {messages.length === 0 ? (
           /* 首轮：头像 + 空白气泡常驻 */
@@ -514,7 +537,7 @@ export function MessageList({ branchId, messages }: MessageListProps) {
             <div className="flex items-start gap-2 max-w-3xl mx-auto flex-row-reverse">
               <div className="flex-shrink-0 mt-0.5"><PixelIcon grid={avatarGrid} /></div>
               <div className="max-w-[75%]">
-                <div className="text-sm leading-relaxed whitespace-pre-wrap px-3.5 py-2.5 bg-[#BDE0FE] text-gray-800 rounded-2xl rounded-tr-md shadow-[0_2px_8px_rgba(189,224,254,0.4)] opacity-60 min-w-[40px] min-h-[20px]">
+                <div className="text-sm leading-relaxed whitespace-pre-wrap px-3.5 py-2.5 bg-arc-bubble text-gray-800 rounded-2xl rounded-tr-md shadow-[0_2px_8px_rgba(155,142,196,0.2)] opacity-60 min-w-[40px] min-h-[20px]">
                   {draft || '\u00A0'}
                 </div>
               </div>
@@ -544,7 +567,7 @@ export function MessageList({ branchId, messages }: MessageListProps) {
                 <div className="flex items-start gap-2 max-w-3xl mx-auto flex-row-reverse">
                   <div className="flex-shrink-0 mt-0.5"><PixelIcon grid={avatarGrid} /></div>
                   <div className="max-w-[75%]">
-                    <div className="text-sm leading-relaxed whitespace-pre-wrap px-3.5 py-2.5 bg-[#BDE0FE] text-gray-800 rounded-2xl rounded-tr-md shadow-[0_2px_8px_rgba(189,224,254,0.4)] opacity-60">
+                    <div className="text-sm leading-relaxed whitespace-pre-wrap px-3.5 py-2.5 bg-arc-bubble text-gray-800 rounded-2xl rounded-tr-md shadow-[0_2px_8px_rgba(155,142,196,0.2)] opacity-60">
                       {draft}
                     </div>
                   </div>

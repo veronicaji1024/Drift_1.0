@@ -156,7 +156,7 @@ export const useDriftStore = create<DriftStore>((set, get) => ({
   async sendMessage(branchId: string, content: string) {
     if (!branchId) return
 
-    const shouldSpit = content.trim() === '吐豆子'
+    let shouldSpit = content.trim() === '吐豆子'
 
     const svc = getServices()
 
@@ -208,6 +208,9 @@ export const useDriftStore = create<DriftStore>((set, get) => ({
           updatedLoading.delete(branchId)
           updatedLoading.add(targetBranchId)
           set({ loadingBranches: updatedLoading })
+
+          // fork 成功 → Q*bert 吐豆子
+          shouldSpit = true
         } catch {
           // fork 失败，消息留在原分支
         }
