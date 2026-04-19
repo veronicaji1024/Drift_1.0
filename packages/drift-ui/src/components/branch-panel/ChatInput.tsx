@@ -56,7 +56,7 @@ export function ChatInput({ branchId }: ChatInputProps) {
   )
 
   return (
-    <div className="border-t border-arc-border bg-arc-panel/80 backdrop-blur-sm">
+    <div className="border-t border-arc-border bg-white/80 backdrop-blur-sm">
       {/* 导航建议浮层 */}
       {topSuggestion && (
         <div className="mx-3 mt-2 px-3 py-1.5 bg-arc-warn/30 border border-arc-warn rounded-xl flex items-center gap-2 text-xs">
@@ -91,8 +91,8 @@ export function ChatInput({ branchId }: ChatInputProps) {
         />
         <button
           className="
-            px-3 py-2 bg-arc-btn text-white text-sm font-pixel font-medium rounded-xl
-            hover:bg-arc-btn-hover active:bg-arc-btn-hover
+            px-3 py-2 bg-arc-primary text-white text-sm font-pixel font-medium rounded-xl
+            hover:bg-arc-btn active:bg-arc-btn
             disabled:opacity-40 disabled:cursor-not-allowed
             transition-colors flex-shrink-0
           "

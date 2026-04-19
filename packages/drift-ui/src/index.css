@@ -66,21 +66,21 @@ body, body * {
   border-radius: 24px;
   background: linear-gradient(
     135deg,
-    #A89CC8 0%,
-    #C4BBD8 30%,
-    #D4CCE6 60%,
-    #B8AED8 100%
+    #4A2D7A 0%,
+    #5B3D8F 30%,
+    #4A2D7A 60%,
+    #3D2066 100%
   );
   box-shadow:
-    0 8px 32px rgba(42, 36, 56, 0.35),
-    0 2px 8px rgba(42, 36, 56, 0.2),
-    inset 0 2px 0 rgba(255, 255, 255, 0.3),
-    inset 0 -2px 0 rgba(42, 36, 56, 0.25);
+    0 8px 32px rgba(30, 15, 60, 0.5),
+    0 2px 8px rgba(30, 15, 60, 0.3),
+    inset 0 2px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -2px 0 rgba(20, 10, 40, 0.4);
 }
 
 .crt-screen {
   border-radius: 12px;
-  border: 3px solid #4A2D7A;
+  border: 3px solid #3D2066;
   position: relative;
   overflow: hidden;
 }

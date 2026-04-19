@@ -35,20 +35,20 @@ export function ConversationPanel({ width, visible, onToggle }: ConversationPane
 
   return (
     <div
-      className="h-full flex flex-col bg-arc-panel/95 backdrop-blur-md border-l border-arc-border overflow-hidden transition-all duration-300 ease-out"
+      className="h-full flex flex-col bg-white/95 backdrop-blur-md border-l border-arc-border overflow-hidden transition-all duration-300 ease-out"
       style={{ width: visible ? width : 0, minWidth: visible ? 320 : 0 }}
     >
       {visible && (
         <>
           {/* 标题栏 */}
-          <div className="px-4 py-2.5 border-b border-arc-border/50 flex items-center gap-2 select-none bg-arc-panel/80 flex-shrink-0">
+          <div className="px-4 py-2.5 border-b border-arc-border/50 flex items-center gap-2 select-none bg-white/80 flex-shrink-0">
             {/* 状态指示 */}
             {activeBranchId && (
               <span className={`w-2 h-2 rounded-full ${statusColor} flex-shrink-0`} />
             )}
 
             {/* 分支名称 */}
-            <h3 className="text-sm font-pixel font-medium text-arc-text truncate flex-1">
+            <h3 className="text-sm font-zhBody font-medium text-arc-text-muted truncate flex-1">
               {branch?.label ?? (activeBranchId ? '未命名分支' : '')}
             </h3>
 

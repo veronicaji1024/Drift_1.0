@@ -512,7 +512,7 @@ export function NetworkGraph() {
       )}
 
       {/* 提示文字 */}
-      <div className="absolute bottom-4 left-4 text-xs text-arc-text-muted/50 font-pixel pointer-events-none select-none">
+      <div className="absolute bottom-4 left-4 text-xs text-arc-text-muted/50 font-zhBody pointer-events-none select-none">
         点击节点查看对话 · 右键更多操作 · 滚轮缩放 · 拖拽平移
       </div>
     </div>

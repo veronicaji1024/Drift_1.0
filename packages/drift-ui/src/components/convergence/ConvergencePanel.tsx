@@ -83,7 +83,7 @@ export function ConvergencePanel() {
     <div className="w-80 h-full border-l border-arc-border bg-arc-panel flex flex-col">
       {/* 标题栏 */}
       <div className="px-4 py-3 border-b border-arc-border flex items-center justify-between">
-        <h2 className="text-sm font-pixel font-semibold text-arc-text">收敛输出</h2>
+        <h2 className="text-sm font-zhBody font-semibold text-arc-text">收敛输出</h2>
         <button
           className="text-arc-text-muted hover:text-arc-text text-lg leading-none"
           onClick={toggleConvergencePanel}
@@ -95,7 +95,7 @@ export function ConvergencePanel() {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* 分支选择器 */}
         <div>
-          <h3 className="text-xs font-pixel font-medium text-arc-text-muted mb-2">选择分支</h3>
+          <h3 className="text-xs font-zhBody font-medium text-arc-text-muted mb-2">选择分支</h3>
           <div className="space-y-1 max-h-40 overflow-y-auto">
             {selectableBranches.map((branch) => (
               <label
@@ -116,7 +116,7 @@ export function ConvergencePanel() {
 
         {/* 格式选择器 */}
         <div>
-          <h3 className="text-xs font-pixel font-medium text-arc-text-muted mb-2">输出格式</h3>
+          <h3 className="text-xs font-zhBody font-medium text-arc-text-muted mb-2">输出格式</h3>
           <div className="space-y-1">
             {FORMAT_OPTIONS.map((opt) => (
               <label
@@ -147,7 +147,7 @@ export function ConvergencePanel() {
         {/* 生成按钮 */}
         <button
           className="
-            w-full py-2.5 bg-arc-btn text-white text-sm font-pixel font-medium rounded-xl
+            w-full py-2.5 bg-arc-btn text-white text-sm font-zhBody font-medium rounded-xl
             hover:bg-arc-btn-hover active:bg-arc-btn-hover
             disabled:opacity-40 disabled:cursor-not-allowed
             transition-colors
@@ -169,7 +169,7 @@ export function ConvergencePanel() {
         {convergenceResult && (
           <div className="border border-arc-border rounded-xl">
             <div className="px-3 py-2 border-b border-arc-border/50 flex items-center justify-between">
-              <span className="text-xs font-pixel font-medium text-arc-text-muted">生成结果</span>
+              <span className="text-xs font-zhBody font-medium text-arc-text-muted">生成结果</span>
               <div className="flex gap-1">
                 <button
                   className="text-xs text-arc-primary hover:text-arc-btn"

@@ -71,22 +71,22 @@ export function DriftApp() {
                   {AI_QBERT_GRID.map((row, py) => row.map((c, px) => c !== _t ? <rect key={`${px}-${py}`} x={px} y={py} width="1" height="1" fill={c} /> : null))}
                 </svg>
                 <span className="font-arcade text-base text-arc-text ml-0.5" style={{ lineHeight: '24px' }}>
-                  rift
+                  drift
                 </span>
               </div>
               <div className="flex items-center gap-3 pointer-events-auto">
                 <button
-                  className="text-xs font-pixel text-arc-text-muted hover:text-arc-text px-3 py-1.5 rounded-xl border border-arc-border bg-arc-panel/80 backdrop-blur-sm transition-colors"
+                  className="text-xs font-zhBody text-arc-text-muted hover:text-arc-text px-3 py-1.5 rounded-xl border border-arc-border bg-white/80 backdrop-blur-sm transition-colors"
                   onClick={() => setSearchQuery(' ')}
                 >
                   &#x2318;K 搜索
                 </button>
                 <button
                   className={`
-                    text-xs font-pixel px-3 py-1.5 rounded-xl border backdrop-blur-sm transition-colors
+                    text-xs font-zhBody px-3 py-1.5 rounded-xl border backdrop-blur-sm transition-colors
                     ${convergencePanelOpen
-                      ? 'text-arc-btn border-arc-primary bg-arc-panel/80'
-                      : 'text-arc-text-muted hover:text-arc-text border-arc-border bg-arc-panel/80'}
+                      ? 'text-arc-primary border-arc-primary bg-white/80'
+                      : 'text-arc-text-muted hover:text-arc-text border-arc-border bg-white/80'}
                   `}
                   onClick={toggleConvergencePanel}
                 >
@@ -121,7 +121,7 @@ export function DriftApp() {
 
           {/* 收敛面板（右侧浮出） */}
           {convergencePanelOpen && (
-            <div className="absolute top-12 right-0 bottom-0 z-40">
+            <div className="absolute top-0 right-0 bottom-0 z-40">
               <ConvergencePanel />
             </div>
           )}

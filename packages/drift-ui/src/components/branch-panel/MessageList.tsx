@@ -181,9 +181,9 @@ function AvatarPicker() {
 
   return (
     <div className="flex items-center justify-center h-full bg-white">
-      <div className="bg-arc-panel/80 rounded-2xl shadow-[0_4px_20px_rgba(155,142,196,0.15)] p-6 max-w-sm mx-4 border border-arc-border">
+      <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgba(155,142,196,0.15)] p-6 max-w-sm mx-4 border border-arc-border">
         <div className="text-center mb-5">
-          <div className="text-base font-pixel font-medium text-arc-text mb-1">选一个你的分身</div>
+          <div className="text-base font-zhBody font-medium text-arc-text-muted mb-1">选一个你的分身</div>
           <div className="text-xs text-arc-text-muted">它会在对话里代表你</div>
         </div>
         <div className="grid grid-cols-4 gap-3">
@@ -248,7 +248,7 @@ function MessageItem({
         </div>
         <div className={`max-w-[75%] ${isUser ? 'items-end' : 'items-start'}`}>
           {thinking && <ThinkingBlock content={thinking} onDone={() => setThinkingDone(true)} />}
-          {showReply && <div className={`text-sm leading-relaxed px-3.5 py-2.5 animate-[fade-in_0.3s_ease-out] ${isUser ? 'bg-arc-bubble text-gray-800 rounded-2xl rounded-tr-md shadow-[0_2px_8px_rgba(155,142,196,0.2)]' : 'bg-arc-panel text-arc-text rounded-2xl rounded-tl-md shadow-[0_2px_8px_rgba(155,142,196,0.12)]'}`}>
+          {showReply && <div className={`text-sm leading-relaxed px-3.5 py-2.5 animate-[fade-in_0.3s_ease-out] ${isUser ? 'bg-blue-100 text-gray-800 rounded-2xl rounded-tr-md shadow-[0_2px_8px_rgba(155,142,196,0.2)]' : 'bg-gray-50 text-gray-800 rounded-2xl rounded-tl-md shadow-[0_2px_8px_rgba(155,142,196,0.12)]'}`}>
             {isUser ? reply : (
               <div className="prose prose-sm prose-gray max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-2 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-0.5 [&_p]:leading-relaxed [&_li]:leading-relaxed [&_strong]:text-gray-900 [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm [&_code]:text-xs [&_code]:bg-gray-100 [&_code]:px-1 [&_code]:rounded [&_pre]:bg-gray-50 [&_pre]:rounded-lg [&_pre]:text-xs [&_blockquote]:border-l-2 [&_blockquote]:border-gray-300 [&_blockquote]:pl-3 [&_blockquote]:text-gray-500 [&_table]:text-xs">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{reply}</ReactMarkdown>
@@ -537,7 +537,7 @@ export function MessageList({ branchId, messages }: MessageListProps) {
             <div className="flex items-start gap-2 max-w-3xl mx-auto flex-row-reverse">
               <div className="flex-shrink-0 mt-0.5"><PixelIcon grid={avatarGrid} /></div>
               <div className="max-w-[75%]">
-                <div className="text-sm leading-relaxed whitespace-pre-wrap px-3.5 py-2.5 bg-arc-bubble text-gray-800 rounded-2xl rounded-tr-md shadow-[0_2px_8px_rgba(155,142,196,0.2)] opacity-60 min-w-[40px] min-h-[20px]">
+                <div className="text-sm leading-relaxed whitespace-pre-wrap px-3.5 py-2.5 bg-blue-100 text-gray-800 rounded-2xl rounded-tr-md shadow-[0_2px_8px_rgba(155,142,196,0.2)] opacity-60 min-w-[40px] min-h-[20px]">
                   {draft || '\u00A0'}
                 </div>
               </div>
@@ -567,7 +567,7 @@ export function MessageList({ branchId, messages }: MessageListProps) {
                 <div className="flex items-start gap-2 max-w-3xl mx-auto flex-row-reverse">
                   <div className="flex-shrink-0 mt-0.5"><PixelIcon grid={avatarGrid} /></div>
                   <div className="max-w-[75%]">
-                    <div className="text-sm leading-relaxed whitespace-pre-wrap px-3.5 py-2.5 bg-arc-bubble text-gray-800 rounded-2xl rounded-tr-md shadow-[0_2px_8px_rgba(155,142,196,0.2)] opacity-60">
+                    <div className="text-sm leading-relaxed whitespace-pre-wrap px-3.5 py-2.5 bg-blue-100 text-gray-800 rounded-2xl rounded-tr-md shadow-[0_2px_8px_rgba(155,142,196,0.2)] opacity-60">
                       {draft}
                     </div>
                   </div>
