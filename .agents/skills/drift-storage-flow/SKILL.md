@@ -106,12 +106,11 @@ Convergence
 - `transaction()` 直接执行（无回滚）
 - 消息查询用全表扫描 + filter
 
-### SQLiteAdapter（计划中）
-- 核心表：messages, branches, observations, global_maps, profiles, fork_records, deliverables
-- `messages.branch_id` 建索引（高频查询）
-- `transaction()` 用 SQLite 的 BEGIN/COMMIT/ROLLBACK
-- GlobalMap 历史用 `global_maps` 表 append-only + `ORDER BY created_at DESC LIMIT 1`
+### IndexedDBAdapter
+- 浏览器原生 IndexedDB，7 个 object store 对应 7 个存储接口
+- `messages` store 在 `branchId` 上建索引（高频查询）
+- `transaction()` 用 IndexedDB 的 transaction（支持 readwrite + 自动回滚）
+- GlobalMap 历史用 `globalMaps` store append-only + index on `timestamp`
 
-### PGAdapter（计划中）
-- Schema 同 SQLite，加 spaceId 做多租户隔离
-- 参考 Stello 的 PgSessionStorage 的 slot 统一存储模式
+### SQLiteAdapter / PGAdapter（V2 计划中）
+- V2 阶段按需实现，接口已通过 DriftStorage 抽象预留

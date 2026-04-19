@@ -139,65 +139,82 @@ Quick Peek：hover 预览目标分支摘要，不需要完整切换。
 | T2 | GlobalMap | Cross-branch | 新 T1 产出 | 所有分支 + Convergence + UI |
 | T3 | Deliverables | 用户选择范围 | 用户触发 | 用户导出 |
 
-### Observer 输出格式（T1）
+### ObserverAgent 输出格式（T1）
 
 ```typescript
+type BranchStage = 'exploring' | 'deepening' | 'concluding' | 'exhausted'
+
 interface Observation {
   id: string
   branchId: string
-  topics: string[]
-  facts: string[]
-  decisions: string[]
-  openQuestions: string[]
-  currentTask: string
+  topic: string                 // 一句话概括分支在讨论什么
+  stage: BranchStage            // 进展阶段
+  keyPoints: string[]           // 已确认的关键结论（最多 5 条）
+  openQuestions: string[]       // 待解问题（最多 3 条）
+  directionSignal: string       // 走向信号
   messageRange: [number, number]
+  timestamp: string
+  tokenCount: number
+}
+```
+
+### SynthesizerAgent 输出格式（T2）
+
+```typescript
+interface GlobalMap {
+  overallTheme: {
+    mainTopics: string[]        // 贯穿多个分支的核心议题
+    sideTopics: string[]        // 局部探索的支线议题
+  }
+  branchLandscape: {
+    summaries: BranchSummary[]  // 每个分支的一句话定位
+    relations: BranchRelation[] // 分支间关系（7 种类型）
+  }
+  crossThemeConnections: CrossThemeConnection[]  // 跨主题隐含关联
+  explorationCoverage: {
+    wellExplored: string[]
+    justStarted: string[]
+    blindSpots: string[]
+  }
+  convergenceReadiness: {
+    status: 'not_ready' | 'partially_ready' | 'ready'
+    reason: string
+  }
+  navigationSuggestions: NavigationSuggestion[]   // 1-3 条导航建议
   timestamp: string
 }
 ```
 
-### Synthesizer 输出格式（T2）
-
-```typescript
-interface GlobalMap {
-  branchSummaries: Array<{
-    branchId: string
-    topicSentence: string
-    relationToParent: string
-    relationToRoot: string
-    status: 'exploring' | 'converging' | 'concluded'
-  }>
-  crossBranchInsights: Array<{
-    branchIds: string[]
-    insight: string
-  }>
-  navigationHints: Array<{
-    fromBranchId: string
-    toBranchId: string
-    reason: string
-    relevance: number
-    trigger: 'topic_overlap' | 'open_question_answered' | 'contradiction' | 'dependency'
-  }>
-  overallProgress: string
-}
-```
-
-### Profile Agent 输出格式
+### ProfileAgent 输出格式
 
 ```typescript
 interface UserProfile {
-  thinkingStyle: 'divergent-first' | 'linear' | 'jumping'
-  topicSwitchFrequency: 'high' | 'medium' | 'low'
-  preferredOutputFormat: 'outline' | 'table' | 'checklist' | 'prose'
-  autoForkTolerance: number
-  detailLevel: 'concise' | 'detailed'
-  intentDetectorSensitivity: number
-  observerDebounceSec: number
-  forkCooldownTurns: number
-  domainExpertise: Record<string, 'expert' | 'intermediate' | 'novice'>
+  thinkingStyle: { type: 'divergent' | 'convergent' | 'balanced'; description: string }
+  depthPreference: { type: 'surface' | 'moderate' | 'deep'; description: string }
+  interactionPattern: { type: 'questioner' | 'challenger' | 'collaborator' | 'director'; description: string }
+  focusAreas: Array<{ topic: string; level: 'high' | 'medium' | 'low' }>
+  responsePreference: 'concise' | 'detailed' | 'structured' | 'conversational'
+  confidenceLevel: 'provisional' | 'developing' | 'stable'
   lastUpdated: string
-  sessionCount: number
-  insights: string[]
 }
+```
+
+### IntentDetector 输出格式
+
+```typescript
+interface IntentResult {
+  intent: 'continue' | 'fork' | 'backtrack'
+  confidence: 'high' | 'medium' | 'low'
+  forkLabel?: string
+  backtrackHint?: string
+  reasoning: string
+}
+```
+
+### 收敛输出格式
+
+```typescript
+type OutputFormat = 'outline' | 'structured-summary' | 'comparison' | 'decision-matrix' | 'full-report' | 'custom'
 ```
 
 ---

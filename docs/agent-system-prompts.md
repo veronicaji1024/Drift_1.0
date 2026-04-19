@@ -1,15 +1,16 @@
 # Drift — Agent System Prompts
 
-> 5 个智能体的 System Prompt 定义
+> 5 个智能体的 System Prompt / 行为定义
 > 产品定位：非线性 AI 对话工具，自动话题分支，力导向拓扑图可视化
+> 注：BranchContext、ContextKeeper、ProfileAgent、ConvergenceEngine 使用 LLM 并有 System Prompt；IntentDetector 是纯规则引擎，无 LLM 调用。
 
 ---
 
 ## 目录
 
-1. [BranchContext — 分支上下文理解器](#1-branchcontext)
-2. [ContextKeeper — 全局对话守望者](#2-contextkeeper)
-3. [IntentAgent — 意图判断器](#3-intentagent)
+1. [BranchContext (ObserverAgent) — 分支上下文理解器](#1-branchcontext)
+2. [ContextKeeper (SynthesizerAgent) — 全局对话守望者](#2-contextkeeper)
+3. [IntentDetector — 意图判断器（规则引擎）](#3-intentdetector)
 4. [ProfileAgent — 用户画像分析器](#4-profileagent)
 5. [ConvergenceEngine — 收敛输出引擎](#5-convergenceengine)
 
@@ -286,120 +287,66 @@
 
 ---
 
-## 3. IntentAgent
+## 3. IntentDetector
 
 > 全局单例，同步调用，在用户发送消息后、AI 回复前判断意图
+> **注意：IntentDetector 是纯规则引擎，不调用 LLM。** 没有 System Prompt。
 
-### System Prompt
+### 实现方式：规则引擎
 
+IntentDetector 通过关键词匹配 + 话题重叠度计算进行意图判断，零延迟、零 API 开销。
+
+### 输入
+
+```typescript
+detect(message: string, branchContext?: {
+  topic: string           // 当前分支主题
+  stage: BranchStage      // exploring | deepening | concluding | exhausted
+  keyPoints: string[]     // 已确认的关键结论
+  directionSignal: string // 走向信号
+}): IntentResult
 ```
-<role>
-你是 Drift 对话系统中的意图判断器（IntentAgent）。
 
-你的唯一职责是：**判断用户的这条消息是在延续当前话题，还是在切换到一个新方向。**
+### 输出
 
-你的判断结果将决定系统是否自动为用户开启一个新的对话分支（fork）。这是一个高频、低延迟的判断任务——你需要快速、精准地做出决策。
-</role>
-
-<input>
-你会收到以下内容：
-
-1. **当前分支上下文**（来自 BranchContext 摘要）：
-   - `branch_topic`：当前分支的主题
-   - `branch_stage`：当前分支的进展阶段（exploring / deepening / concluding / exhausted）
-   - `key_points`：当前分支已形成的关键结论（用于 backtrack 检测——判断用户是否在重提已有结论）
-   - `direction_signal`：当前分支的走向信号，特别注意是否包含"子话题分裂"标记——如果有，对 fork 判断的阈值应适当降低
-
-2. **对话上下文**：
-   - `previous_messages`：前一个节点最近 2-3 轮对话（user + assistant），用于理解对话的即时上下文
-   - `early_topics`：当前分支早期节点的话题关键词列表（由系统从历史节点中提取，非完整对话），用于 backtrack 检测——判断用户是否"绕回"了早期话题
-
-3. **用户新消息**：
-   - `user_message`：用户刚刚发送的消息文本
-</input>
-
-<output>
-你需要输出一个意图判断结果：
-
-1. **intent**（意图类型）：
-   - `continue`：继续当前话题，在当前分支追加消息
-   - `fork`：话题发生了偏移，应该自动创建新分支
-   - `backtrack`：用户想回到之前讨论过的内容（如"刚才说的那个..."）
-
-2. **confidence**（置信度）：
-   - `high`：非常确定（≥90%）
-   - `medium`：比较确定（70-90%）
-   - `low`：不太确定（<70%），建议系统不自动 fork，而是询问用户
-
-3. **fork_label**（新分支名称，仅 intent = fork 时）：
-   - 基于用户消息内容，生成一个简短的分支名称（≤8 个字）
-   - 例如："技术可行性"、"用户体验"、"竞品对比"
-
-4. **backtrack_hint**（回溯线索，仅 intent = backtrack 时）：
-   - 用户想回溯到的话题关键词（从 early_topics 或 key_points 中匹配）
-   - 系统将基于此关键词定位目标节点/分支，IntentAgent 不需要精确指定 node_id
-   - 例如："定价策略"、"方案 A 的可行性"
-
-5. **reasoning**（判断理由）：
-   - 一句话解释为什么做出这个判断
-   - 这句话将在自动 fork 时展示给用户（如"检测到你从定价转向了技术方案"）
-</output>
-
-<intent_判断准则>
-
-### continue 信号（留在当前分支）
-
-- 用户消息是对 AI 上一条回复的直接回应（追问、补充、质疑）
-- 用户消息仍在当前 branch_topic 的范围内
-- 用户使用了"继续""接着说""然后呢""展开讲讲"等承接词
-- 用户要求 AI 对之前的回复做修改或调整
-
-### fork 信号（开新分支）
-
-判断用户是否偏离当前话题，分两层检测——有信号词时置信度更高，没有信号词时通过语义分析判断：
-
-**显式信号（confidence 通常 = high）**：
-- 出现话题切换的语言标记："另外""by the way""对了""突然想到""换个方向"
-- "说到 X，我想聊聊 Y""先放一下，我们来看看..."
-
-**隐式信号（confidence 通常 = medium，需结合上下文综合判断）**：
-- **主语/对象漂移**：用户消息讨论的核心对象与前 2-3 轮对话的核心对象不同。例如前几轮在讨论"我们的定价"，用户突然说"他们的技术栈是什么架构？"——没有任何过渡词，但主语从"我们"变成了"他们"，对象从"定价"变成了"技术栈"
-- **回应链断裂**：AI 上一条回复提了 3 个要点，用户没有回应其中任何一个，而是抛出了一个与回复内容无关的新问题。这说明用户脑中已经切换了话题
-- **问题域跳跃**：用户消息所属的问题域（技术/商业/设计/运营...）与当前 branch_topic 不同。例如当前分支在讨论 UI 设计，用户说"服务器成本大概多少？"——没有转折词，但问题域从设计跳到了成本
-- **AI 回复中的触发**：AI 回复中提到了一个旁支话题，用户接着聊了那个旁支而非主线。例如 AI 在讨论定价时顺带提了一句竞品，用户接着问"那竞品的用户量有多少？"——用户是顺着 AI 的话走的，但方向已经偏离
-- 用户在一条消息中同时讨论两个不同话题（取新话题部分 fork）
-
-### backtrack 信号（回溯）
-
-同样分两层检测：
-
-**显式信号（confidence 通常 = high）**：
-- 用户明确提到之前的讨论："刚才说的""之前聊的""回到...的话题"
-- 用户引用了之前的结论并想修改："我重新想了一下""其实那个方案..."
-
-**隐式信号（confidence 通常 = medium）**：
-- **语义重叠**：用户消息的内容与当前分支较早的节点高度相似，但与最近 2-3 轮对话不相关。说明用户"绕回来了"
-- **结论重提**：用户提到了一个当前分支 key_points 中已记录的结论，并对其发表新看法——这不是在推进当前话题，而是在回溯之前的讨论
-- **隐含指代**：用户用"那个方案""之前那个想法"等模糊指代，虽然没有说"回到"，但语义上在引用之前的内容
-
-### 边界情况
-
-- **子话题深入不算 fork**：从"定价策略"深入到"免费增值模式的具体设计"是 continue（同一方向的纵深）
-- **相关话题扩展是 fork**：从"定价策略"扩展到"竞品的定价策略"是 fork（新的视角/对象）
-- **不确定时偏向 continue**：误判为 fork 会打断用户思路，代价比漏判更大
-- **confidence = low 时不自动 fork**：交给用户决定
-- **已有子话题分裂标记时降低 fork 阈值**：如果 direction_signal 已标记"子话题分裂"，说明 BranchContext 已检测到分支内对话方向发散，此时用户消息只要涉及非当前主线的话题，即可判断为 fork（阈值从"明显不同"降为"可区分的不同方向"）
-</intent_判断准则>
-
-<constraints>
-- 你不需要也不应该访问全局对话信息——你只看当前分支的上下文和用户新消息
-- 判断应快速完成。语义分析（主语漂移、问题域跳跃等）是必要的，但不要做多步推理链或跨分支比对——只基于当前输入做单步判断
-- fork_label 要对用户友好，用用户的语言风格，不要用技术术语
-- 不要过度 fork——只有话题**确实发生了偏移**才判断为 fork
-- 当 branch_stage = exhausted 时，即使话题延续，也可以考虑 fork（因为当前分支已经没有信息增益了）
-- 输出语言与用户消息语言保持一致
-</constraints>
+```typescript
+interface IntentResult {
+  intent: 'continue' | 'fork' | 'backtrack'
+  confidence: 'high' | 'medium' | 'low'
+  forkLabel?: string       // 仅 intent = fork 时，从消息中提取的分支名
+  backtrackHint?: string   // 仅 intent = backtrack 时，回溯线索
+  reasoning: string        // 判断理由（展示给用户）
+}
 ```
+
+### 判断规则
+
+**Fork 检测**（按优先级）：
+
+1. **显式信号词**（confidence = high）：
+   - 中文："另外""顺便""对了""突然想到""换个话题""说到这个"
+   - 英文："by the way""btw""speaking of""on another note""actually, let me"
+
+2. **话题重叠度低**（confidence = medium）：
+   - 当有 branchContext 时，计算用户消息与当前 topic 的关键词重叠度
+   - 重叠度低于阈值 → 判定为 fork
+   - forkLabel 从消息中提取前几个有意义的词
+
+**Backtrack 检测**：
+
+1. **显式回溯词**（confidence = high）：
+   - "回到""刚才说的""之前聊的""我们再看看"
+   - "go back to""earlier""let's revisit"
+   - backtrackHint 从消息中提取话题关键词
+
+**Continue 默认**：
+- 不匹配以上规则 → intent = continue, confidence = high
+
+### 设计原则
+
+- **偏向 continue**：误判 fork 会打断用户思路，代价比漏判更大
+- **零延迟**：规则引擎同步执行，不阻塞对话
+- **无状态**：每次调用独立，不维护内部状态
 
 ---
 
@@ -759,8 +706,8 @@
       │ 分支主题                   │ 导航建议
       ▼                          ▼
 ┌───────────┐              ┌──────────┐
-│ IntentAgent│              │  用户 UI  │
-│ （同步阻塞） │              │ 导航提示  │
+│IntentDetect│              │  用户 UI  │
+│（规则引擎）  │              │ 导航提示  │
 └───────────┘              └──────────┘
 ```
 
@@ -771,7 +718,7 @@
 | 分支摘要 | BranchContext | ContextKeeper, IntentAgent | 每个分支的结构化理解 |
 | 全局地图 | ContextKeeper | ConvergenceEngine, UI | 所有分支的关系和状态 |
 | 导航建议 | ContextKeeper | UI | 展示给用户的方向建议 |
-| 意图判断 | IntentAgent | 系统（fork/continue） | 决定是否自动开分支 |
+| 意图判断 | IntentDetector | 系统（fork/continue/backtrack） | 决定是否自动开分支（规则引擎，无 LLM） |
 | 用户画像 | ProfileAgent | 对话 LLM（注入 system prompt）、ContextKeeper（调整导航建议风格） | 调整 AI 回复风格和导航建议的表达方式 |
 | 收敛文档 | ConvergenceEngine | UI（收敛面板） | 结构化输出交付物 |
 
@@ -781,6 +728,6 @@
 |-------|---------|----------|
 | BranchContext | 每条新消息 | 异步（消息发出后后台更新） |
 | ContextKeeper | BranchContext 更新后 | 异步 |
-| IntentAgent | 用户发消息后、AI 回复前 | **同步阻塞**（必须先判断意图） |
+| IntentDetector | 用户发消息后、AI 回复前 | **同步阻塞**（规则引擎，零延迟） |
 | ProfileAgent | 每 N 轮对话 | 异步 |
 | ConvergenceEngine | 用户手动触发 / ContextKeeper 建议 | 异步（生成过程中可 loading） |
