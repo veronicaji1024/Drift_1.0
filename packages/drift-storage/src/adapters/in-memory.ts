@@ -284,6 +284,14 @@ class InMemoryForkRecordStorage implements ForkRecordStorage {
     return record ? { ...record } : null
   }
 
+  /** 按 ID 移除一条记录 */
+  async removeById(id: string): Promise<boolean> {
+    const idx = this.stack.findIndex((r) => r.id === id)
+    if (idx === -1) return false
+    this.stack.splice(idx, 1)
+    return true
+  }
+
   /** 列出最近的记录（按栈顶到栈底顺序） */
   async list(limit?: number): Promise<ForkRecord[]> {
     const reversed = [...this.stack].reverse()

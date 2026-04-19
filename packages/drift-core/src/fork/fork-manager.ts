@@ -101,6 +101,7 @@ export class ForkManager {
       if (!forkRecord) {
         throw new Error(`ForkRecord 不存在: ${forkRecordId}`)
       }
+      await this.storage.forkRecords.removeById(forkRecordId)
     } else {
       // 弹出最近的 ForkRecord
       forkRecord = await this.storage.forkRecords.pop()

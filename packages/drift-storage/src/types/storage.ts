@@ -337,6 +337,8 @@ export interface ForkRecordStorage {
   push(record: ForkRecord): Promise<void>
   /** 弹出最近一条 fork 记录 */
   pop(): Promise<ForkRecord | null>
+  /** 按 ID 移除一条 fork 记录 */
+  removeById(id: string): Promise<boolean>
   /** 列出最近的 fork 记录 */
   list(limit?: number): Promise<ForkRecord[]>
   /** 清空所有 fork 记录 */

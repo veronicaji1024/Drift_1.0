@@ -1,5 +1,6 @@
 /** Drift 全局状态管理 — Zustand store */
 import { create } from 'zustand'
+import driftPersona from '../prompts/drift-persona.md?raw'
 import type {
   Message,
   Branch,
@@ -53,6 +54,15 @@ export interface DriftStore {
   rightPanelVisible: boolean
   rightPanelWidth: number
 
+  // ---- 用户头像 ----
+  userAvatar: string | null
+
+  // ---- Q*bert 动画 ----
+  qbertSpitting: boolean
+
+  // ---- 实时输入 ----
+  draftByBranch: Record<string, string>
+
   // ---- 操作 ----
   switchBranch(id: string): void
   sendMessage(branchId: string, content: string): void
@@ -68,6 +78,9 @@ export interface DriftStore {
   toggleConvergencePanel(): void
   toggleRightPanel(): void
   setRightPanelWidth(width: number): void
+  setUserAvatar(id: string): void
+  triggerQbertSpit(): void
+  setDraft(branchId: string, content: string): void
 
   // ---- 内部 ----
   _updateFromEvent(event: DriftEvent): void
@@ -121,6 +134,9 @@ export const useDriftStore = create<DriftStore>((set, get) => ({
   errorByBranch: {},
   rightPanelVisible: true,
   rightPanelWidth: 400,
+  userAvatar: null,
+  qbertSpitting: false,
+  draftByBranch: {},
 
   /** 切换到指定分支 */
   switchBranch(id: string) {
@@ -139,6 +155,8 @@ export const useDriftStore = create<DriftStore>((set, get) => ({
   /** 发送用户消息到指定分支，并获取 AI 回复 */
   async sendMessage(branchId: string, content: string) {
     if (!branchId) return
+
+    const shouldSpit = content.trim() === '吐豆子'
 
     const svc = getServices()
 
@@ -211,19 +229,9 @@ export const useDriftStore = create<DriftStore>((set, get) => ({
         // 从 observations 获取当前分支的上下文信息
         const branchObs = get().observations[targetBranchId] ?? []
         const latestObservation = branchObs.length > 0 ? branchObs[branchObs.length - 1] : null
-        const branch = get().branches[targetBranchId]
 
-        // 组装 system prompt
-        let systemContent = `你是 Drift 对话助手。用户正在分支式对话中探索话题。
-
-当前分支：${branch?.label ?? '未命名'}
-你的职责是帮助用户深入探讨当前话题，给出有价值的回复。
-
-### 回复原则
-- 保持对话聚焦在当前分支的话题上
-- 如果用户的问题与当前话题相关，深入展开
-- 回复应该有结构性，适当使用列表和分点
-- 用中文回复（除非用户使用英文）`
+        // 基于 driftPersona 组装 system prompt，注入分支上下文
+        let systemContent = driftPersona
 
         if (latestObservation) {
           systemContent += `\n\n### 当前分支上下文
@@ -261,6 +269,11 @@ ${latestObservation.openQuestions.length > 0 ? `待解问题：${latestObservati
         const aiMessage = await svc.messageStore.append(targetBranchId, 'assistant', response.content)
         const latestMessages = get().messagesByBranch[targetBranchId] ?? []
         set({ messagesByBranch: { ...get().messagesByBranch, [targetBranchId]: [...latestMessages, aiMessage] } })
+
+        // AI 回复渲染后再触发吐豆子，确保 ref 指向本轮
+        if (shouldSpit) {
+          setTimeout(() => get().triggerQbertSpit(), 150)
+        }
       }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'LLM 调用失败'
@@ -359,6 +372,23 @@ ${latestObservation.openQuestions.length > 0 ? `待解问题：${latestObservati
   /** 切换右侧对话面板显隐 */
   toggleRightPanel() {
     set((s) => ({ rightPanelVisible: !s.rightPanelVisible }))
+  },
+
+  /** 设置用户头像 */
+  setUserAvatar(id: string) {
+    set({ userAvatar: id })
+  },
+
+  /** 设置某分支的草稿内容 */
+  setDraft(branchId: string, content: string) {
+    set({ draftByBranch: { ...get().draftByBranch, [branchId]: content } })
+  },
+
+  /** 触发 Q*bert 吐豆子动画 */
+  triggerQbertSpit() {
+    console.log('[Drift] triggerQbertSpit called!')
+    set({ qbertSpitting: true })
+    setTimeout(() => { console.log('[Drift] qbertSpitting reset to false'); set({ qbertSpitting: false }) }, 6000)
   },
 
   /** 设置右侧面板宽度 */

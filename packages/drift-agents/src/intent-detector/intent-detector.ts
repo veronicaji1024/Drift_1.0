@@ -238,7 +238,7 @@ export class IntentDetector {
   /** 从消息中自动生成分支标签 */
   private generateLabel(message: string, _matchedSignal?: string): string {
     const cleaned = message
-      .replace(/[另外想到|换个角度|对了|突然想到|by the way|btw|what about]/gi, '')
+      .replace(/(?:另外想到|换个角度|对了|突然想到|by the way|btw|what about)/gi, '')
       .trim()
     const label = cleaned.slice(0, 20).trim()
     return label.length > 0 ? label : '新话题'
