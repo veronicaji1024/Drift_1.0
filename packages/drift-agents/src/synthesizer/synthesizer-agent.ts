@@ -2,57 +2,99 @@ import type {
   DriftStorage,
   GlobalMap,
   BranchSummary,
-  CrossBranchInsight,
-  NavigationHint,
+  BranchRelation,
+  BranchRelationType,
+  CrossThemeConnection,
+  NavigationSuggestion,
+  NavigationAction,
+  ConvergenceReadiness,
   Observation,
   BranchTreeNode,
+  BranchStage,
 } from '@drift/storage'
 import type { LLMAdapter, LLMMessage } from '@drift/core'
 
-/** Synthesizer 的系统提示词 */
-const SYNTHESIZER_SYSTEM_PROMPT = `You are a cross-branch synthesis agent. Given a tree of conversation branches with their observations, produce a GlobalMap that captures the big picture.
+/** ContextKeeper 的系统提示词 — 对应 system prompt 文档中的 ContextKeeper agent */
+const SYNTHESIZER_SYSTEM_PROMPT = `你是 Drift 对话系统中的全局对话守望者（ContextKeeper）。
+
+你站在"上帝视角"，通过每个分支的 BranchContext 摘要来感知全局状态。
 
 Output ONLY valid JSON (no markdown fences, no extra text):
 {
-  "branchSummaries": [
-    {
-      "branchId": "branch-id",
-      "topicSentence": "One sentence describing what this branch is about",
-      "relationToParent": "How this branch relates to its parent branch",
-      "relationToRoot": "How this branch relates to the root topic",
-      "status": "exploring | converging | concluded"
-    }
-  ],
-  "crossBranchInsights": [
+  "overallTheme": {
+    "mainTopics": ["贯穿多个分支的核心议题"],
+    "sideTopics": ["局部探索的支线议题"]
+  },
+  "branchLandscape": {
+    "summaries": [
+      {
+        "branchId": "branch-id",
+        "topicSentence": "一句话概括该分支主题",
+        "stage": "exploring | deepening | concluding | exhausted",
+        "role": "该分支在整体对话中扮演的角色"
+      }
+    ],
+    "relations": [
+      {
+        "branchIdA": "branch-a",
+        "branchIdB": "branch-b",
+        "types": ["complementary | competing | progressive | derived | contradictory | supporting | independent"]
+      }
+    ]
+  },
+  "crossThemeConnections": [
     {
       "branchIds": ["branch-a", "branch-b"],
-      "insight": "What these branches have in common or how they contradict"
+      "nature": "关联的性质",
+      "significance": "为什么值得关注"
     }
   ],
-  "navigationHints": [
+  "explorationCoverage": {
+    "wellExplored": ["已充分讨论的方向"],
+    "justStarted": ["刚开始探索的方向"],
+    "blindSpots": ["应该讨论但还没讨论的方向"]
+  },
+  "convergenceReadiness": {
+    "status": "not_ready | partially_ready | ready",
+    "reason": "一句话说明理由"
+  },
+  "navigationSuggestions": [
     {
-      "fromBranchId": "branch-a",
-      "toBranchId": "branch-b",
-      "reason": "Why the user might want to jump",
-      "relevance": 0.8,
-      "trigger": "topic_overlap | open_question_answered | contradiction | dependency"
+      "action": "deep_dive | new_direction | jump | converge",
+      "target": "具体目标描述",
+      "reasoning": "面向用户的理由"
     }
-  ],
-  "overallProgress": "A one-sentence assessment of overall task progress"
+  ]
 }
 
-Rules:
-- branchSummaries: one entry per branch that has observations
-- crossBranchInsights: only include genuinely useful correlations
-- navigationHints: relevance is 0-1, only include if relevance >= 0.5
-- status: "exploring" = still diverging, "converging" = narrowing down, "concluded" = done
-- Support both Chinese and English content`
+### 关系类型说明
+- complementary: 从不同角度探讨同一问题
+- competing: 探讨了互斥的方案
+- progressive: 一个是另一个的深入或延展
+- derived: 基于另一个的结论去探索新问题
+- contradictory: 各自得出了不兼容的结论
+- supporting: 一个的结论为另一个提供论据
+- independent: 不同话题，无明显关联
+
+### 导航建议生成逻辑
+- 当前分支 exploring → 建议 deep_dive
+- 当前分支 deepening + 子话题分裂 → 建议 new_direction 拆分
+- 当前分支 concluding → 建议 new_direction 或 converge
+- 当前分支 exhausted → 建议 new_direction 或 jump
+- convergenceReadiness = ready → 第一条必须是 converge
+- 存在 contradictory 关系 → 在 converge 前建议 jump 到矛盾分支
+- 最多 3 条建议
+
+### 规则
+- 关系判断必须基于 topic 和 keyPoints 的语义分析，不要只看分支名
+- 导航建议的 reasoning 面向用户，用自然语言
+- 如果只有 1 个分支且 stage = exploring，输出精简版
+- 输出语言与用户对话语言保持一致`
 
 /**
- * Synthesizer Agent — 跨分支关联分析
+ * Synthesizer Agent — 全局对话守望者（ContextKeeper）
  *
- * 读取所有分支的 T1 Observations 和树结构，产出 GlobalMap (T2)。
- * 使用中等模型层级（Sonnet / 4o）。
+ * 读取所有分支的 Observations 和树结构，产出 GlobalMap。
  */
 export class SynthesizerAgent {
   private llm: LLMAdapter
@@ -75,7 +117,6 @@ export class SynthesizerAgent {
 
   /** 核心执行逻辑 */
   private async doRun(): Promise<GlobalMap> {
-    // 读取树结构和所有 observations
     const tree = await this.storage.branches.getTree()
     const allObservations = await this.storage.observations.getAll()
 
@@ -83,13 +124,9 @@ export class SynthesizerAgent {
       return this.fallbackGlobalMap()
     }
 
-    // 按分支分组 observations
     const obsByBranch = this.groupByBranch(allObservations)
-
-    // 构造输入文本
     const inputText = this.buildInput(tree, obsByBranch)
 
-    // 调用 LLM
     const messages: LLMMessage[] = [
       { role: 'system', content: SYNTHESIZER_SYSTEM_PROMPT },
       { role: 'user', content: inputText },
@@ -100,20 +137,19 @@ export class SynthesizerAgent {
       maxTokens: 4096,
     })
 
-    // 解析响应
     const parsed = this.parseResponse(response.content)
 
     const globalMap: GlobalMap = {
-      branchSummaries: parsed.branchSummaries,
-      crossBranchInsights: parsed.crossBranchInsights,
-      navigationHints: parsed.navigationHints,
-      overallProgress: parsed.overallProgress,
+      overallTheme: parsed.overallTheme,
+      branchLandscape: parsed.branchLandscape,
+      crossThemeConnections: parsed.crossThemeConnections,
+      explorationCoverage: parsed.explorationCoverage,
+      convergenceReadiness: parsed.convergenceReadiness,
+      navigationSuggestions: parsed.navigationSuggestions,
       timestamp: new Date().toISOString(),
     }
 
-    // 持久化 GlobalMap
     await this.storage.globalMap.put(globalMap)
-
     return globalMap
   }
 
@@ -132,20 +168,18 @@ export class SynthesizerAgent {
   private buildInput(tree: BranchTreeNode, obsByBranch: Map<string, Observation[]>): string {
     const parts: string[] = []
 
-    // 树结构
     parts.push('## Branch Tree Structure')
     parts.push(this.renderTree(tree, 0))
 
-    // 各分支的 observations
-    parts.push('\n## Branch Observations')
+    parts.push('\n## Branch Observations (from BranchContext)')
     for (const [branchId, observations] of obsByBranch) {
       parts.push(`\n### Branch: ${branchId}`)
       for (const obs of observations) {
-        parts.push(`Topics: ${obs.topics.join(', ')}`)
-        parts.push(`Facts: ${obs.facts.join('; ')}`)
-        parts.push(`Decisions: ${obs.decisions.join('; ')}`)
+        parts.push(`Topic: ${obs.topic}`)
+        parts.push(`Stage: ${obs.stage}`)
+        parts.push(`Key Points: ${obs.keyPoints.join('; ')}`)
         parts.push(`Open Questions: ${obs.openQuestions.join('; ')}`)
-        parts.push(`Current Task: ${obs.currentTask}`)
+        parts.push(`Direction Signal: ${obs.directionSignal}`)
       }
     }
 
@@ -164,16 +198,20 @@ export class SynthesizerAgent {
 
   /** 解析 LLM 的 JSON 响应，带容错 */
   private parseResponse(content: string): {
-    branchSummaries: BranchSummary[]
-    crossBranchInsights: CrossBranchInsight[]
-    navigationHints: NavigationHint[]
-    overallProgress: string
+    overallTheme: GlobalMap['overallTheme']
+    branchLandscape: GlobalMap['branchLandscape']
+    crossThemeConnections: CrossThemeConnection[]
+    explorationCoverage: GlobalMap['explorationCoverage']
+    convergenceReadiness: GlobalMap['convergenceReadiness']
+    navigationSuggestions: NavigationSuggestion[]
   } {
     const fallback = {
-      branchSummaries: [],
-      crossBranchInsights: [],
-      navigationHints: [],
-      overallProgress: '',
+      overallTheme: { mainTopics: [], sideTopics: [] },
+      branchLandscape: { summaries: [], relations: [] },
+      crossThemeConnections: [],
+      explorationCoverage: { wellExplored: [], justStarted: [], blindSpots: [] },
+      convergenceReadiness: { status: 'not_ready' as ConvergenceReadiness, reason: '' },
+      navigationSuggestions: [],
     }
 
     try {
@@ -187,43 +225,91 @@ export class SynthesizerAgent {
 
       const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>
 
+      const overallTheme = parsed.overallTheme as Record<string, unknown> | undefined
+      const branchLandscape = parsed.branchLandscape as Record<string, unknown> | undefined
+      const convergenceReadiness = parsed.convergenceReadiness as Record<string, unknown> | undefined
+      const explorationCoverage = parsed.explorationCoverage as Record<string, unknown> | undefined
+
       return {
-        branchSummaries: Array.isArray(parsed.branchSummaries)
-          ? (parsed.branchSummaries as BranchSummary[])
+        overallTheme: {
+          mainTopics: Array.isArray(overallTheme?.mainTopics) ? overallTheme.mainTopics as string[] : [],
+          sideTopics: Array.isArray(overallTheme?.sideTopics) ? overallTheme.sideTopics as string[] : [],
+        },
+        branchLandscape: {
+          summaries: Array.isArray(branchLandscape?.summaries)
+            ? this.validateSummaries(branchLandscape.summaries as BranchSummary[])
+            : [],
+          relations: Array.isArray(branchLandscape?.relations)
+            ? this.validateRelations(branchLandscape.relations as BranchRelation[])
+            : [],
+        },
+        crossThemeConnections: Array.isArray(parsed.crossThemeConnections)
+          ? (parsed.crossThemeConnections as CrossThemeConnection[])
           : [],
-        crossBranchInsights: Array.isArray(parsed.crossBranchInsights)
-          ? (parsed.crossBranchInsights as CrossBranchInsight[])
+        explorationCoverage: {
+          wellExplored: Array.isArray(explorationCoverage?.wellExplored) ? explorationCoverage.wellExplored as string[] : [],
+          justStarted: Array.isArray(explorationCoverage?.justStarted) ? explorationCoverage.justStarted as string[] : [],
+          blindSpots: Array.isArray(explorationCoverage?.blindSpots) ? explorationCoverage.blindSpots as string[] : [],
+        },
+        convergenceReadiness: {
+          status: isConvergenceReadiness(convergenceReadiness?.status) ? convergenceReadiness.status : 'not_ready',
+          reason: typeof convergenceReadiness?.reason === 'string' ? convergenceReadiness.reason : '',
+        },
+        navigationSuggestions: Array.isArray(parsed.navigationSuggestions)
+          ? this.validateSuggestions(parsed.navigationSuggestions as NavigationSuggestion[])
           : [],
-        navigationHints: Array.isArray(parsed.navigationHints)
-          ? this.validateNavigationHints(parsed.navigationHints as NavigationHint[])
-          : [],
-        overallProgress: typeof parsed.overallProgress === 'string'
-          ? parsed.overallProgress
-          : '',
       }
     } catch {
       return fallback
     }
   }
 
-  /** 过滤低相关度的导航提示 */
-  private validateNavigationHints(hints: NavigationHint[]): NavigationHint[] {
-    return hints.filter((h) =>
-      typeof h.relevance === 'number' &&
-      h.relevance >= 0.5 &&
-      typeof h.fromBranchId === 'string' &&
-      typeof h.toBranchId === 'string',
+  /** 验证 BranchSummary 数组 */
+  private validateSummaries(summaries: BranchSummary[]): BranchSummary[] {
+    return summaries.filter((s) =>
+      typeof s.branchId === 'string' &&
+      typeof s.topicSentence === 'string',
     )
+  }
+
+  /** 验证 BranchRelation 数组 */
+  private validateRelations(relations: BranchRelation[]): BranchRelation[] {
+    return relations.filter((r) =>
+      typeof r.branchIdA === 'string' &&
+      typeof r.branchIdB === 'string' &&
+      Array.isArray(r.types),
+    )
+  }
+
+  /** 验证 NavigationSuggestion 数组 */
+  private validateSuggestions(suggestions: NavigationSuggestion[]): NavigationSuggestion[] {
+    return suggestions.filter((s) =>
+      isNavigationAction(s.action) &&
+      typeof s.target === 'string' &&
+      typeof s.reasoning === 'string',
+    ).slice(0, 3)
   }
 
   /** 回退的空 GlobalMap */
   private fallbackGlobalMap(): GlobalMap {
     return {
-      branchSummaries: [],
-      crossBranchInsights: [],
-      navigationHints: [],
-      overallProgress: '',
+      overallTheme: { mainTopics: [], sideTopics: [] },
+      branchLandscape: { summaries: [], relations: [] },
+      crossThemeConnections: [],
+      explorationCoverage: { wellExplored: [], justStarted: [], blindSpots: [] },
+      convergenceReadiness: { status: 'not_ready', reason: '' },
+      navigationSuggestions: [],
       timestamp: new Date().toISOString(),
     }
   }
+}
+
+/** 类型守卫：ConvergenceReadiness */
+function isConvergenceReadiness(v: unknown): v is ConvergenceReadiness {
+  return v === 'not_ready' || v === 'partially_ready' || v === 'ready'
+}
+
+/** 类型守卫：NavigationAction */
+function isNavigationAction(v: unknown): v is NavigationAction {
+  return v === 'deep_dive' || v === 'new_direction' || v === 'jump' || v === 'converge'
 }

@@ -1,5 +1,6 @@
 /** Drift 全局状态管理 — Zustand store */
 import { create } from 'zustand'
+import driftPersona from '../prompts/drift-persona.md?raw'
 import type {
   Message,
   Branch,
@@ -8,9 +9,10 @@ import type {
   GlobalMap,
   UserProfile,
   OutputFormat,
+  Deliverable,
 } from '@drift/storage'
 import type { DriftEvent, BranchManager, MessageStore, ForkManager, LLMAdapter, LLMMessage } from '@drift/core'
-import type { IntentDetector, AgentScheduler } from '@drift/agents'
+import type { IntentDetector, AgentScheduler, ConvergenceEngine } from '@drift/agents'
 
 /** 自动 fork 提示信息 */
 interface AutoForkNoticeData {
@@ -35,6 +37,11 @@ export interface DriftStore {
   observations: Record<string, Observation[]>
   profile: UserProfile | null
 
+  // ---- 收敛状态 ----
+  convergenceResult: Deliverable | null
+  convergenceLoading: boolean
+  convergenceError: string | null
+
   // ---- UI 状态 ----
   autoForkNotice: AutoForkNoticeData | null
   convergencePanelOpen: boolean
@@ -46,6 +53,15 @@ export interface DriftStore {
   // ---- 右侧面板状态 ----
   rightPanelVisible: boolean
   rightPanelWidth: number
+
+  // ---- 用户头像 ----
+  userAvatar: string | null
+
+  // ---- Q*bert 动画 ----
+  qbertSpitting: boolean
+
+  // ---- 实时输入 ----
+  draftByBranch: Record<string, string>
 
   // ---- 操作 ----
   switchBranch(id: string): void
@@ -62,6 +78,9 @@ export interface DriftStore {
   toggleConvergencePanel(): void
   toggleRightPanel(): void
   setRightPanelWidth(width: number): void
+  setUserAvatar(id: string): void
+  triggerQbertSpit(): void
+  setDraft(branchId: string, content: string): void
 
   // ---- 内部 ----
   _updateFromEvent(event: DriftEvent): void
@@ -74,6 +93,7 @@ interface DriftServices {
   forkManager: ForkManager
   intentDetector: IntentDetector
   agentScheduler: AgentScheduler
+  convergenceEngine: ConvergenceEngine
   llm?: LLMAdapter
 }
 
@@ -103,6 +123,9 @@ export const useDriftStore = create<DriftStore>((set, get) => ({
   globalMap: null,
   observations: {},
   profile: null,
+  convergenceResult: null,
+  convergenceLoading: false,
+  convergenceError: null,
   autoForkNotice: null,
   convergencePanelOpen: false,
   searchQuery: '',
@@ -111,6 +134,9 @@ export const useDriftStore = create<DriftStore>((set, get) => ({
   errorByBranch: {},
   rightPanelVisible: true,
   rightPanelWidth: 400,
+  userAvatar: null,
+  qbertSpitting: false,
+  draftByBranch: {},
 
   /** 切换到指定分支 */
   switchBranch(id: string) {
@@ -121,13 +147,16 @@ export const useDriftStore = create<DriftStore>((set, get) => ({
       set({ rightPanelVisible: true })
     }
     if (prev && prev !== id) {
-      get()._updateFromEvent({ type: 'branch:switched', from: prev, to: id })
+      // 通知 EventBus（如果 BranchManager 需要感知切换）
+      // 状态已通过 set({ activeBranchId }) 更新
     }
   },
 
   /** 发送用户消息到指定分支，并获取 AI 回复 */
   async sendMessage(branchId: string, content: string) {
     if (!branchId) return
+
+    const shouldSpit = content.trim() === '吐豆子'
 
     const svc = getServices()
 
@@ -142,11 +171,17 @@ export const useDriftStore = create<DriftStore>((set, get) => ({
 
     // 通过 IntentDetector 检测是否需要 fork
     const branchObservations = get().observations[branchId] ?? []
-    const topics = branchObservations.flatMap((o) => o.topics)
-    const intentResult = svc.intentDetector.detect(content, topics, get().profile ?? undefined)
+    const latestObs = branchObservations.length > 0 ? branchObservations[branchObservations.length - 1] : null
+    const branchContext = latestObs ? {
+      topic: latestObs.topic,
+      stage: latestObs.stage,
+      keyPoints: latestObs.keyPoints,
+      directionSignal: latestObs.directionSignal,
+    } : undefined
+    const intentResult = svc.intentDetector.detect(content, branchContext)
 
-    // 如果检测到漂移，自动 fork，消息发到新分支
-    if (intentResult.type === 'drift') {
+    // 如果检测到 fork 意图，自动 fork，消息发到新分支
+    if (intentResult.intent === 'fork') {
       const currentMessages = get().messagesByBranch[branchId] ?? []
       const lastMsgId = currentMessages.length > 0
         ? currentMessages[currentMessages.length - 1].id
@@ -154,7 +189,7 @@ export const useDriftStore = create<DriftStore>((set, get) => ({
       if (lastMsgId) {
         try {
           const forkRecord = await svc.forkManager.fork(branchId, lastMsgId, {
-            label: intentResult.suggestedLabel ?? '新话题',
+            label: intentResult.forkLabel ?? '新话题',
             auto: true,
             inheritContext: true,
           })
@@ -190,10 +225,43 @@ export const useDriftStore = create<DriftStore>((set, get) => ({
       // 调用 LLM 获取 AI 回复
       if (svc.llm) {
         const history = get().messagesByBranch[targetBranchId] ?? []
-        const llmMessages: LLMMessage[] = history.map((m) => ({
-          role: m.role === 'system' ? 'system' : m.role === 'assistant' ? 'assistant' : 'user',
-          content: m.content,
-        }))
+
+        // 从 observations 获取当前分支的上下文信息
+        const branchObs = get().observations[targetBranchId] ?? []
+        const latestObservation = branchObs.length > 0 ? branchObs[branchObs.length - 1] : null
+
+        // 基于 driftPersona 组装 system prompt，注入分支上下文
+        let systemContent = driftPersona
+
+        if (latestObservation) {
+          systemContent += `\n\n### 当前分支上下文
+话题：${latestObservation.topic || '探索中'}
+阶段：${latestObservation.stage}
+${latestObservation.keyPoints.length > 0 ? `已确认要点：${latestObservation.keyPoints.join('；')}` : ''}
+${latestObservation.openQuestions.length > 0 ? `待解问题：${latestObservation.openQuestions.join('；')}` : ''}`
+        }
+
+        // 如果有全局洞察，注入跨分支信息
+        const globalMap = get().globalMap
+        if (globalMap) {
+          const relatedConnections = globalMap.crossThemeConnections.filter(
+            (c) => c.branchIds.includes(targetBranchId)
+          )
+          if (relatedConnections.length > 0) {
+            systemContent += '\n\n### 跨分支关联（供参考）'
+            for (const conn of relatedConnections.slice(0, 3)) {
+              systemContent += `\n- ${conn.nature}：${conn.significance}`
+            }
+          }
+        }
+
+        const llmMessages: LLMMessage[] = [
+          { role: 'system', content: systemContent },
+          ...history.map((m) => ({
+            role: m.role === 'system' ? 'system' as const : m.role === 'assistant' ? 'assistant' as const : 'user' as const,
+            content: m.content,
+          })),
+        ]
 
         const response = await svc.llm.chat(llmMessages)
 
@@ -201,6 +269,11 @@ export const useDriftStore = create<DriftStore>((set, get) => ({
         const aiMessage = await svc.messageStore.append(targetBranchId, 'assistant', response.content)
         const latestMessages = get().messagesByBranch[targetBranchId] ?? []
         set({ messagesByBranch: { ...get().messagesByBranch, [targetBranchId]: [...latestMessages, aiMessage] } })
+
+        // AI 回复渲染后再触发吐豆子，确保 ref 指向本轮
+        if (shouldSpit) {
+          setTimeout(() => get().triggerQbertSpit(), 150)
+        }
       }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'LLM 调用失败'
@@ -265,8 +338,20 @@ export const useDriftStore = create<DriftStore>((set, get) => ({
   },
 
   /** 请求收敛输出 */
-  async requestConvergence(_branchIds: string[], _format: OutputFormat) {
-    // 收敛由 ConvergenceEngine 处理，结果通过事件更新
+  async requestConvergence(branchIds: string[], format: OutputFormat) {
+    const svc = getServices()
+    set({ convergenceLoading: true, convergenceError: null, convergenceResult: null })
+
+    try {
+      const deliverable = await svc.convergenceEngine.generate(branchIds, format)
+      set({ convergenceResult: deliverable })
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : '收敛生成失败'
+      console.error('[Drift] 收敛生成失败:', err)
+      set({ convergenceError: errMsg })
+    } finally {
+      set({ convergenceLoading: false })
+    }
   },
 
   /** 设置搜索关键词 */
@@ -287,6 +372,23 @@ export const useDriftStore = create<DriftStore>((set, get) => ({
   /** 切换右侧对话面板显隐 */
   toggleRightPanel() {
     set((s) => ({ rightPanelVisible: !s.rightPanelVisible }))
+  },
+
+  /** 设置用户头像 */
+  setUserAvatar(id: string) {
+    set({ userAvatar: id })
+  },
+
+  /** 设置某分支的草稿内容 */
+  setDraft(branchId: string, content: string) {
+    set({ draftByBranch: { ...get().draftByBranch, [branchId]: content } })
+  },
+
+  /** 触发 Q*bert 吐豆子动画 */
+  triggerQbertSpit() {
+    console.log('[Drift] triggerQbertSpit called!')
+    set({ qbertSpitting: true })
+    setTimeout(() => { console.log('[Drift] qbertSpitting reset to false'); set({ qbertSpitting: false }) }, 6000)
   },
 
   /** 设置右侧面板宽度 */
@@ -333,9 +435,16 @@ export const useDriftStore = create<DriftStore>((set, get) => ({
       }
       case 'message:moved': {
         const msgMap = { ...get().messagesByBranch }
+        const movedMsg = (msgMap[event.from] ?? []).find(
+          (m) => m.id === event.messageId
+        )
         msgMap[event.from] = (msgMap[event.from] ?? []).filter(
           (m) => m.id !== event.messageId
         )
+        if (movedMsg) {
+          const updated = { ...movedMsg, branchId: event.to }
+          msgMap[event.to] = [...(msgMap[event.to] ?? []), updated]
+        }
         set({ messagesByBranch: msgMap })
         break
       }

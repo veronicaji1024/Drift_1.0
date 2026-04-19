@@ -5,36 +5,46 @@
  * 本文件定义 drift-agents 独有的类型。
  */
 
-// ─── 行为信号 ───
+// ─── Intent 检测结果（对应 IntentAgent spec） ───
+
+/** 意图类型 */
+export type IntentType = 'continue' | 'fork' | 'backtrack'
+
+/** 意图置信度 */
+export type IntentConfidence = 'high' | 'medium' | 'low'
+
+/** IntentDetector 的检测结果 */
+export interface IntentResult {
+  /** 意图类型：继续 / 开分支 / 回溯 */
+  intent: IntentType
+  /** 置信度 */
+  confidence: IntentConfidence
+  /** 新分支名称（仅 intent=fork 时） */
+  forkLabel?: string
+  /** 回溯目标话题关键词（仅 intent=backtrack 时） */
+  backtrackHint?: string
+  /** 面向用户的判断理由 */
+  reasoning: string
+}
+
+// ─── 行为信号（ProfileAgent 输入） ───
 
 /** 用户行为信号，由应用层收集后传给 ProfileAgent */
 export interface BehaviorSignals {
+  /** 用户对话历史采样（跨分支） */
+  recentMessages: Array<{ branchId: string; content: string; timestamp: string }>
+  /** 用户创建了多少个分支 */
+  branchCount: number
+  /** 平均每个分支对话多少轮 */
+  avgTurnsPerBranch: number
+  /** 分支切换频率（次/分钟） */
+  switchFrequency: number
+  /** 是否使用过收敛功能 */
+  usedConvergence: boolean
   /** fork 撤销次数 */
   forkUndoCount: number
   /** fork 接受次数 */
   forkAcceptCount: number
-  /** 分支切换次数 */
-  branchSwitchCount: number
-  /** 用户消息平均长度 */
-  averageMessageLength: number
-  /** 本次会话使用过的收敛格式 */
-  convergenceFormats: OutputFormat[]
-  /** 会话持续时间（分钟） */
-  sessionDurationMinutes: number
-  /** 各话题的深度评分 */
-  topicDepthScores: Record<string, number>
-}
-
-// ─── Intent 检测结果 ───
-
-/** IntentDetector 的检测结果 */
-export interface IntentResult {
-  /** 意图类型：话题漂移 / 收敛 / 继续 */
-  type: 'drift' | 'converge' | 'continue'
-  /** 置信度 0-1 */
-  confidence: number
-  /** 漂移时自动生成的分支标签 */
-  suggestedLabel?: string
 }
 
 // ─── Agent 任务 ───

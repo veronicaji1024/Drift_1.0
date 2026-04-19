@@ -1,22 +1,22 @@
 /** 跨分支洞察注解 — 在对话中内联显示 Synthesizer 发现的关联 */
 import { useCallback } from 'react'
 import { useDriftStore } from '../../store/drift-store'
-import type { CrossBranchInsight } from '@drift/storage'
+import type { CrossThemeConnection } from '@drift/storage'
 
 /** 内联洞察属性 */
 interface InlineInsightProps {
-  insight: CrossBranchInsight
+  connection: CrossThemeConnection
   currentBranchId: string
 }
 
 /** 内联洞察组件 — 展示跨分支关联信息 */
-export function InlineInsight({ insight, currentBranchId }: InlineInsightProps) {
+export function InlineInsight({ connection, currentBranchId }: InlineInsightProps) {
   const setQuickPeekBranch = useDriftStore((s) => s.setQuickPeekBranch)
   const switchBranch = useDriftStore((s) => s.switchBranch)
   const branches = useDriftStore((s) => s.branches)
 
   // 找到关联的其他分支（排除当前分支）
-  const relatedBranchIds = insight.branchIds.filter((id) => id !== currentBranchId)
+  const relatedBranchIds = connection.branchIds.filter((id) => id !== currentBranchId)
 
   /** 悬停时触发 QuickPeek */
   const handleMouseEnter = useCallback(
@@ -49,7 +49,8 @@ export function InlineInsight({ insight, currentBranchId }: InlineInsightProps) 
           &#x1F4A1;
         </span>
         <div className="flex-1 min-w-0">
-          <p className="text-sm text-purple-700">{insight.insight}</p>
+          <p className="text-sm text-purple-700 font-medium">{connection.nature}</p>
+          <p className="text-xs text-purple-600 mt-0.5">{connection.significance}</p>
           <div className="mt-1 flex flex-wrap gap-1">
             {relatedBranchIds.map((branchId) => {
               const label = branches[branchId]?.label ?? branchId
@@ -77,22 +78,22 @@ interface InlineInsightListProps {
   branchId: string
 }
 
-/** 渲染当前分支相关的所有跨分支洞察 */
+/** 渲染当前分支相关的所有跨主题关联 */
 export function InlineInsightList({ branchId }: InlineInsightListProps) {
   const globalMap = useDriftStore((s) => s.globalMap)
 
   if (!globalMap) return null
 
-  const relevantInsights = globalMap.crossBranchInsights.filter((insight) =>
-    insight.branchIds.includes(branchId)
+  const relevantConnections = globalMap.crossThemeConnections.filter((conn) =>
+    conn.branchIds.includes(branchId)
   )
 
-  if (relevantInsights.length === 0) return null
+  if (relevantConnections.length === 0) return null
 
   return (
     <>
-      {relevantInsights.map((insight, idx) => (
-        <InlineInsight key={idx} insight={insight} currentBranchId={branchId} />
+      {relevantConnections.map((conn, idx) => (
+        <InlineInsight key={idx} connection={conn} currentBranchId={branchId} />
       ))}
     </>
   )

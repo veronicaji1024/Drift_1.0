@@ -9,11 +9,11 @@ function createMockLLM(response?: Partial<LLMResponse>): LLMAdapter {
     async chat(_messages: LLMMessage[], _options?: LLMOptions): Promise<LLMResponse> {
       return {
         content: response?.content ?? JSON.stringify({
-          topics: ['产品设计', '用户体验'],
-          facts: ['用户更偏好简洁界面'],
-          decisions: ['采用卡片式布局'],
+          topic: '界面设计方案讨论',
+          stage: 'deepening',
+          keyPoints: ['用户更偏好简洁界面', '采用卡片式布局'],
           openQuestions: ['如何处理移动端适配？'],
-          currentTask: '讨论界面设计方案',
+          directionSignal: '正在深入探讨布局方案',
         }),
         ...response,
       }
@@ -57,27 +57,24 @@ describe('ObserverAgent', () => {
     })
 
     await addMessages('test-branch', 6)
-    // 这里 branchId 需要匹配——InMemoryAdapter create 会生成 UUID
-    // 直接用 storage.messages 添加的 branchId
     const obs = await observer.run('test-branch')
 
-    // 不论 branchId，至少不崩溃
     expect(obs).toBeDefined()
     expect(obs.branchId).toBe('test-branch')
   })
 
-  it('产出包含 topics/facts/decisions/openQuestions/currentTask', async () => {
+  it('产出包含 topic/stage/keyPoints/openQuestions/directionSignal', async () => {
     const llm = createMockLLM()
     const observer = new ObserverAgent(llm, storage)
 
     await addMessages('branch-1', 4)
     const obs = await observer.run('branch-1')
 
-    expect(obs.topics).toEqual(['产品设计', '用户体验'])
-    expect(obs.facts).toEqual(['用户更偏好简洁界面'])
-    expect(obs.decisions).toEqual(['采用卡片式布局'])
+    expect(obs.topic).toBe('界面设计方案讨论')
+    expect(obs.stage).toBe('deepening')
+    expect(obs.keyPoints).toEqual(['用户更偏好简洁界面', '采用卡片式布局'])
     expect(obs.openQuestions).toEqual(['如何处理移动端适配？'])
-    expect(obs.currentTask).toBe('讨论界面设计方案')
+    expect(obs.directionSignal).toBe('正在深入探讨布局方案')
   })
 
   it('空分支返回 fallback Observation', async () => {
@@ -86,9 +83,9 @@ describe('ObserverAgent', () => {
 
     const obs = await observer.run('empty-branch')
 
-    expect(obs.topics).toEqual([])
-    expect(obs.facts).toEqual([])
-    expect(obs.currentTask).toBe('')
+    expect(obs.topic).toBe('')
+    expect(obs.stage).toBe('exploring')
+    expect(obs.keyPoints).toEqual([])
     expect(obs.messageRange).toEqual([0, 0])
   })
 
@@ -100,21 +97,21 @@ describe('ObserverAgent', () => {
     const obs = await observer.run('branch-bad')
 
     // fallback：所有数组为空
-    expect(obs.topics).toEqual([])
-    expect(obs.facts).toEqual([])
+    expect(obs.topic).toBe('')
+    expect(obs.keyPoints).toEqual([])
   })
 
   it('LLM 返回 markdown 围栏包裹的 JSON 仍可解析', async () => {
     const llm = createMockLLM({
-      content: '```json\n{"topics":["test"],"facts":[],"decisions":[],"openQuestions":[],"currentTask":"testing"}\n```',
+      content: '```json\n{"topic":"testing","stage":"exploring","keyPoints":["test point"],"openQuestions":[],"directionSignal":"exploring"}\n```',
     })
     const observer = new ObserverAgent(llm, storage)
 
     await addMessages('branch-fence', 2)
     const obs = await observer.run('branch-fence')
 
-    expect(obs.topics).toEqual(['test'])
-    expect(obs.currentTask).toBe('testing')
+    expect(obs.topic).toBe('testing')
+    expect(obs.keyPoints).toEqual(['test point'])
   })
 
   it('持久化 Observation 到 storage', async () => {
@@ -126,7 +123,7 @@ describe('ObserverAgent', () => {
 
     const stored = await storage.observations.getByBranch('branch-persist')
     expect(stored.length).toBe(1)
-    expect(stored[0]!.topics).toEqual(['产品设计', '用户体验'])
+    expect(stored[0]!.topic).toBe('界面设计方案讨论')
   })
 
   it('增量观察：从上次结束位置开始', async () => {
@@ -165,8 +162,8 @@ describe('ObserverAgent', () => {
     await addMessages('branch-err', 3)
     const obs = await observer.run('branch-err')
 
-    expect(obs.topics).toEqual([])
-    expect(obs.currentTask).toBe('')
+    expect(obs.topic).toBe('')
+    expect(obs.keyPoints).toEqual([])
   })
 
   it('messageRange 正确记录覆盖的消息索引范围', async () => {

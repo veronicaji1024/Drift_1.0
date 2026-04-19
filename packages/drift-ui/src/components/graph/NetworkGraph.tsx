@@ -4,14 +4,16 @@ import {
   forceSimulation,
   forceLink,
   forceManyBody,
-  forceCenter,
   forceCollide,
+  forceX,
+  forceY,
   type SimulationNodeDatum,
   type SimulationLinkDatum,
 } from 'd3-force'
 import { select } from 'd3-selection'
 import { zoom, type ZoomBehavior, type ZoomTransform } from 'd3-zoom'
 import { useDriftStore } from '../../store/drift-store'
+import { AI_QBERT_GRID, TRANSPARENT as _t, getDepthColor, BEAN_SHAPE, BEAN_HIGHLIGHT } from '../../constants/pixel-art'
 import type { BranchTreeNode } from '@drift/storage'
 
 // ─── 类型定义 ───
@@ -24,6 +26,7 @@ interface GraphNode extends SimulationNodeDatum {
   messageCount: number
   radius: number
   parentId: string | null
+  depth: number
 }
 
 /** 图连线 */
@@ -40,25 +43,19 @@ interface ContextMenuState {
 
 // ─── 工具函数 ───
 
-/** 节点颜色映射 */
-const STATUS_COLORS: Record<string, string> = {
-  active: '#6366F1',
-  idle: '#9CA3AF',
-  archived: '#D1D5DB',
-  exploring: '#3B82F6',
-  converging: '#F59E0B',
-  concluded: '#10B981',
-}
-
-/** 根据消息数计算节点半径 */
-function computeRadius(messageCount: number): number {
-  return Math.max(16, Math.min(40, 16 + Math.sqrt(messageCount) * 6))
+/** 根据消息数和深度计算节点半径 */
+function computeRadius(messageCount: number, depth: number): number {
+  if (depth === 0) {
+    return Math.max(24, Math.min(44, 24 + Math.sqrt(messageCount) * 6))
+  }
+  return Math.max(10, Math.min(18, 10 + Math.sqrt(messageCount) * 2))
 }
 
 /** 递归遍历树节点，收集图节点和连线 */
 function flattenTree(
   node: BranchTreeNode,
   parentId: string | null,
+  depth: number,
   messageCounts: Record<string, number>,
   nodes: GraphNode[],
   links: GraphLink[],
@@ -69,14 +66,15 @@ function flattenTree(
     label: node.label,
     status: node.status,
     messageCount: count,
-    radius: computeRadius(count),
+    radius: computeRadius(count, depth),
     parentId,
+    depth,
   })
   if (parentId) {
     links.push({ source: parentId, target: node.id, type: 'parent-child' })
   }
   for (const child of node.children) {
-    flattenTree(child, node.id, messageCounts, nodes, links)
+    flattenTree(child, node.id, depth + 1, messageCounts, nodes, links)
   }
 }
 
@@ -113,6 +111,8 @@ export function NetworkGraph() {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [hoveredNode, setHoveredNode] = useState<string | null>(null)
   const [nodePositions, setNodePositions] = useState<Record<string, { x: number; y: number }>>({})
+  const draggingRef = useRef<{ nodeId: string; didMove: boolean } | null>(null)
+  const lastDragRef = useRef(0)
 
   // ResizeObserver 监听容器尺寸变化
   useEffect(() => {
@@ -147,7 +147,7 @@ export function NetworkGraph() {
     for (const [branchId, obs] of Object.entries(observations)) {
       if (obs.length > 0) {
         const latest = obs[obs.length - 1]
-        const text = latest.currentTask || latest.topics[0] || ''
+        const text = latest.topic || ''
         if (text) summaries[branchId] = truncateSummary(text)
       }
     }
@@ -159,10 +159,10 @@ export function NetworkGraph() {
     const n: GraphNode[] = []
     const l: GraphLink[] = []
     if (tree) {
-      flattenTree(tree, null, messageCounts, n, l)
+      flattenTree(tree, null, 0, messageCounts, n, l)
     }
     if (globalMap) {
-      for (const insight of globalMap.crossBranchInsights) {
+      for (const insight of globalMap.crossThemeConnections) {
         if (insight.branchIds.length >= 2) {
           for (let i = 0; i < insight.branchIds.length - 1; i++) {
             const srcExists = n.some((node) => node.id === insight.branchIds[i])
@@ -177,21 +177,22 @@ export function NetworkGraph() {
     return { nodes: n, links: l }
   }, [tree, messageCounts, globalMap])
 
-  // D3 force simulation — 使用容器尺寸而非 window 尺寸
+  // D3 force simulation — 树状布局
   useEffect(() => {
     if (nodes.length === 0) return
 
     const { width, height } = containerSize
+    const maxDepth = Math.max(...nodes.map((n) => n.depth), 0)
+    const depthSpacing = Math.min(180, (width * 0.7) / (maxDepth || 1))
 
     for (const node of nodes) {
       const existing = nodePositions[node.id]
       if (existing) {
         node.x = existing.x
         node.y = existing.y
-      } else if (node.parentId && nodePositions[node.parentId]) {
-        const parent = nodePositions[node.parentId]
-        node.x = parent.x + (Math.random() - 0.5) * 50
-        node.y = parent.y + (Math.random() - 0.5) * 50
+      } else {
+        node.x = width * 0.12 + node.depth * depthSpacing + (Math.random() - 0.5) * 30
+        node.y = height / 2 + (Math.random() - 0.5) * 100
       }
     }
 
@@ -203,12 +204,24 @@ export function NetworkGraph() {
           .distance((d) => {
             const src = d.source as GraphNode
             const tgt = d.target as GraphNode
-            return (src.radius + tgt.radius) * 2.5 + 40
+            return (src.radius + tgt.radius) * 1.8 + 60
           })
+          .strength(0.8)
       )
-      .force('charge', forceManyBody().strength(-400))
-      .force('center', forceCenter(width / 2, height / 2).strength(0.05))
-      .force('collide', forceCollide<GraphNode>().radius((d) => d.radius + 20))
+      .force('charge', forceManyBody().strength(-250))
+      .force(
+        'x',
+        forceX<GraphNode>()
+          .x((d) => width * 0.12 + d.depth * depthSpacing)
+          .strength(0.3)
+      )
+      .force(
+        'y',
+        forceY<GraphNode>()
+          .y(height / 2)
+          .strength(0.05)
+      )
+      .force('collide', forceCollide<GraphNode>().radius((d) => d.radius + 15))
       .alphaDecay(0.02)
 
     sim.on('tick', () => {
@@ -232,6 +245,10 @@ export function NetworkGraph() {
 
     const zoomBehavior = zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.1, 5])
+      .filter((event: any) => {
+        if (event.target.closest?.('[data-draggable]')) return false
+        return (!event.ctrlKey || event.type === 'wheel') && !event.button
+      })
       .on('zoom', (event) => {
         select(g).attr('transform', event.transform.toString())
         zoomTransformRef.current = event.transform
@@ -243,11 +260,52 @@ export function NetworkGraph() {
     return () => { select(svg).on('.zoom', null) }
   }, [])
 
-  /** 单击节点切换到该分支 */
+  /** 单击节点切换到该分支（拖拽后不触发） */
   const handleNodeClick = useCallback(
-    (branchId: string) => { switchBranch(branchId) },
+    (branchId: string) => {
+      if (Date.now() - lastDragRef.current < 200) return
+      switchBranch(branchId)
+    },
     [switchBranch]
   )
+
+  /** 拖拽节点自由摆放 */
+  const handleDragStart = useCallback((nodeId: string) => {
+    draggingRef.current = { nodeId, didMove: false }
+    const sim = simulationRef.current
+    if (sim) {
+      const node = sim.nodes().find((n) => n.id === nodeId)
+      if (node) {
+        node.fx = node.x
+        node.fy = node.y
+        sim.alphaTarget(0.3).restart()
+      }
+    }
+
+    const onMove = (me: PointerEvent) => {
+      if (!draggingRef.current) return
+      draggingRef.current.didMove = true
+      const svg = svgRef.current
+      if (!svg) return
+      const rect = svg.getBoundingClientRect()
+      const t = zoomTransformRef.current
+      const x = t ? (me.clientX - rect.left - t.x) / t.k : me.clientX - rect.left
+      const y = t ? (me.clientY - rect.top - t.y) / t.k : me.clientY - rect.top
+      const nd = simulationRef.current?.nodes().find((n) => n.id === draggingRef.current!.nodeId)
+      if (nd) { nd.fx = x; nd.fy = y }
+    }
+
+    const onUp = () => {
+      if (draggingRef.current?.didMove) lastDragRef.current = Date.now()
+      simulationRef.current?.alphaTarget(0)
+      draggingRef.current = null
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }, [])
 
   const handleContextMenu = useCallback((e: MouseEvent, branchId: string) => {
     e.preventDefault()
@@ -289,7 +347,7 @@ export function NetworkGraph() {
     <div ref={containerRef} className="relative w-full h-full overflow-hidden" onClick={closeContextMenu}>
       <svg ref={svgRef} className="w-full h-full" style={{ cursor: 'grab' }}>
         <g ref={gRef}>
-          {/* 节点间连线 */}
+          {/* 节点间连线 — 虚线 */}
           {links.map((link, i) => {
             const src = typeof link.source === 'object' ? link.source : null
             const tgt = typeof link.target === 'object' ? link.target : null
@@ -297,19 +355,33 @@ export function NetworkGraph() {
             const tgtPos = tgt ? nodePositions[tgt.id] : null
             if (!srcPos || !tgtPos) return null
 
+            const isCross = link.type === 'cross-branch'
+            const dotSize = isCross ? 2 : 3
+            const gap = isCross ? 10 : 8
+            const dx = tgtPos.x - srcPos.x
+            const dy = tgtPos.y - srcPos.y
+            const dist = Math.sqrt(dx * dx + dy * dy)
+            const count = Math.max(1, Math.floor(dist / gap))
+
             return (
-              <line
-                key={`link-${i}`}
-                x1={srcPos.x}
-                y1={srcPos.y}
-                x2={tgtPos.x}
-                y2={tgtPos.y}
-                stroke={link.type === 'cross-branch' ? '#C4B5A0' : '#D1C4B0'}
-                strokeWidth={link.type === 'cross-branch' ? 1 : 2.5}
-                strokeDasharray={link.type === 'cross-branch' ? '4 4' : undefined}
-                strokeOpacity={link.type === 'cross-branch' ? 0.5 : 0.6}
-                strokeLinecap="round"
-              />
+              <g key={`link-${i}`} opacity={isCross ? 0.15 : 0.25}>
+                {Array.from({ length: count + 1 }, (_, j) => {
+                  const t = count === 0 ? 0.5 : j / count
+                  const cx = srcPos.x + dx * t
+                  const cy = srcPos.y + dy * t
+                  return (
+                    <rect
+                      key={j}
+                      x={cx - dotSize / 2}
+                      y={cy - dotSize / 2}
+                      width={dotSize}
+                      height={dotSize}
+                      fill="#6366F1"
+                      style={{ imageRendering: 'pixelated' }}
+                    />
+                  )
+                })}
+              </g>
             )
           })}
 
@@ -320,38 +392,58 @@ export function NetworkGraph() {
 
             const isActive = activeBranchId === node.id
             const isHovered = hoveredNode === node.id
-            const color = STATUS_COLORS[node.status] ?? STATUS_COLORS.active
             const isArchived = node.status === 'archived'
             const r = isHovered ? node.radius * 1.15 : node.radius
             const summary = nodeSummaries[node.id]
+            const beanColor = getDepthColor(node.depth)
 
             return (
               <g
                 key={node.id}
+                data-draggable
                 transform={`translate(${pos.x}, ${pos.y})`}
-                style={{ cursor: 'pointer' }}
+                style={{ cursor: 'grab' }}
                 onClick={(e) => { e.stopPropagation(); handleNodeClick(node.id) }}
                 onContextMenu={(e) => handleContextMenu(e, node.id)}
+                onPointerDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); handleDragStart(node.id) }}
                 onMouseEnter={() => setHoveredNode(node.id)}
                 onMouseLeave={() => setHoveredNode(null)}
               >
-                {/* 活跃节点脉冲光晕 */}
-                {isActive && (
-                  <circle r={r + 8} fill={color} opacity={0.15} className="animate-pulse" />
+                {node.depth === 0 ? (
+                  /* Q*bert 像素头像 — 仅根节点 */
+                  <g
+                    transform={`translate(${-r + (r * 2) / 14 * 2}, ${-r}) scale(${(r * 2) / 14})`}
+                    opacity={isArchived ? 0.3 : (isHovered ? 1 : 0.9)}
+                    style={{ transition: 'opacity 0.2s ease' }}
+                  >
+                    {AI_QBERT_GRID.map((row, py) => row.map((c, px) => c !== _t ? <rect key={`${px}-${py}`} x={px} y={py} width="1" height="1" fill={c} style={{ imageRendering: 'pixelated' }} /> : null))}
+                  </g>
+                ) : (
+                  /* 像素豆子 — 支线节点 */
+                  <g
+                    transform={`translate(${-r}, ${-r * 5 / 7}) scale(${(r * 2) / 7})`}
+                    opacity={isArchived ? 0.3 : (isHovered ? 1 : 0.85)}
+                    style={{
+                      transition: 'opacity 0.2s ease',
+                      filter: isActive ? 'drop-shadow(0 0 2px #6366F1) drop-shadow(0 0 4px #6366F1)' : undefined,
+                    }}
+                  >
+                    {BEAN_SHAPE.map((row, py) =>
+                      row.map((filled, px) =>
+                        filled ? (
+                          <rect
+                            key={`${px}-${py}`}
+                            x={px} y={py}
+                            width="1" height="1"
+                            fill={BEAN_HIGHLIGHT[py]?.[px] ? '#fff' : beanColor}
+                            opacity={BEAN_HIGHLIGHT[py]?.[px] ? 0.6 : 1}
+                            style={{ imageRendering: 'pixelated' }}
+                          />
+                        ) : null
+                      )
+                    )}
+                  </g>
                 )}
-
-                {/* 主圆 */}
-                <circle
-                  r={r}
-                  fill={color}
-                  opacity={isArchived ? 0.3 : 0.85}
-                  stroke={isHovered || isActive ? '#fff' : 'none'}
-                  strokeWidth={isHovered || isActive ? 2 : 0}
-                  style={{ transition: 'opacity 0.2s ease' }}
-                />
-
-                {/* 内部小圆点 */}
-                <circle r={Math.max(3, r * 0.25)} fill="#fff" opacity={0.4} />
 
                 {/* 分支名称 */}
                 <text

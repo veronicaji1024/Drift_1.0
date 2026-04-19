@@ -8,7 +8,7 @@
 ┌─────────────────────────────────────────────────────────────┐
 │  drift-ui (Presentation Layer)                               │
 │  React + TypeScript                                          │
-│  TreeCanvas · BranchPanel · ConvergencePanel · Navigation    │
+│  NetworkGraph · ConversationPanel · ConvergencePanel · Nav   │
 ├─────────────────────────────────────────────────────────────┤
 │  drift-agents (Agent Layer)                                  │
 │  Observer · Synthesizer · ProfileAgent · IntentDetector      │
@@ -19,7 +19,7 @@
 │  · LLMRouter · TokenCounter                                  │
 ├─────────────────────────────────────────────────────────────┤
 │  drift-storage (Infrastructure)                              │
-│  StorageAdapter interface · InMemoryAdapter · SQLiteAdapter   │
+│  StorageAdapter interface · InMemoryAdapter · IndexedDBAdapter│
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -111,7 +111,7 @@ interface DriftStorage {
 
 **实现**：
 - `InMemoryAdapter`：Map-based，用于测试和开发
-- `SQLiteAdapter`：better-sqlite3，用于本地持久化
+- `IndexedDBAdapter`：浏览器原生 IndexedDB，7 个 object store，页面刷新后数据保留
 
 ### 2.2 drift-core
 
@@ -175,33 +175,35 @@ mergeBranches(sourceId, targetId, strategy = 'interleave'):
 
 **职责**：所有 AI agent 的实现 + 调度器。
 
-**Agent 接口**：
-
-```typescript
-interface Agent<TInput, TOutput> {
-  name: string
-  run(input: TInput): Promise<TOutput>
-}
-```
-
 **各 Agent 详情**：
 
 | Agent | 输入 | 输出 | 触发条件 | LLM 层级 |
 |-------|------|------|---------|---------|
-| Observer | 分支的 T0 messages | Observation | T0 token > 20k | Haiku / 4o-mini |
-| Synthesizer | 所有分支的 T1 observations + 树结构 | GlobalMap | 新 T1 产出 (debounce 30s) | Sonnet / 4o |
+| ObserverAgent | 分支的原始 messages | Observation | message:appended 事件 | Haiku / 4o-mini |
+| SynthesizerAgent | 所有分支的 observations + 树结构 | GlobalMap | observation:created (debounce 30s) | Sonnet / 4o |
 | ProfileAgent | 用户行为信号 | UserProfile (增量) | 会话结束 / undo fork / merge | Haiku / 4o-mini |
-| IntentDetector | 当前消息 + 分支 T1 topics | DriftDecision | 每条用户消息 | 无 LLM（规则引擎） |
-| ConvergenceEngine | 选中分支 T1 + GlobalMap + 格式 | Deliverable | 用户主动触发 | Opus / 4 |
+| IntentDetector | 当前消息 + 分支上下文 | IntentResult | 每条用户消息 | 无 LLM（规则引擎） |
+| ConvergenceEngine | 选中分支 observations + GlobalMap + 格式 | Deliverable | 用户主动触发 | Opus / 4 |
 
 **AgentScheduler**：
 
 ```typescript
 interface AgentScheduler {
+  /** 注入 agent 实例 */
+  injectAgents(deps: AgentSchedulerDeps): void
   /** 注册 agent 任务 */
   schedule(task: AgentTask): void
   /** 处理事件，决定触发哪些 agent */
   handleEvent(event: DriftEvent): void
+  /** 注册事件监听 */
+  listen(): void
+  /** 清理资源 */
+  dispose(): void
+}
+
+interface AgentSchedulerDeps {
+  observer?: ObserverAgent
+  synthesizer?: SynthesizerAgent
 }
 
 interface AgentTask {
@@ -218,7 +220,7 @@ interface AgentTask {
 2. **medium**：Synthesizer、新 fork 分支的 Observer
 3. **low**：idle 分支的 Observer、ProfileAgent
 
-所有任务 fire-and-forget，不阻塞用户对话。
+所有任务 fire-and-forget，不阻塞用户对话。AgentScheduler 在 agent 执行完成后负责发射 `observation:created` 和 `globalmap:updated` 事件。
 
 ### 2.4 drift-ui
 
@@ -228,47 +230,66 @@ interface AgentTask {
 
 ```
 <DriftApp>
-  ├── <TreeCanvas />          // 分支树可视化（Synthesizer correlations 驱动连线）
-  ├── <BranchPanel>           // 当前分支的对话面板
+  ├── <NetworkGraph />          // D3-force 力导向网络图（单击节点切换分支）
+  ├── <ResizeHandle />          // 拖拽调节面板宽度
+  ├── <ConversationPanel>       // 右侧固定对话面板（可隐藏/拖拽宽度）
   │     ├── <ReEntryBreadcrumb />   // 返回时显示上次进展
-  │     ├── <MessageList />         // 消息列表（支持拖拽）
+  │     ├── <MessageList />         // 消息列表
   │     ├── <AutoForkNotice />      // 自动 fork 提示 + 撤销按钮
-  │     ├── <InlineInsight />       // 跨分支 insight 注解
+  │     ├── <InlineInsightList />   // 跨主题关联注解
   │     └── <ChatInput />           // 输入框 + 导航建议浮层
   ├── <ConvergencePanel />    // 收敛输出面板
   ├── <SearchPanel />         // 语义搜索面板
   └── <QuickPeek />           // hover 预览弹窗
 ```
 
-**状态管理**：Zustand store
+**状态管理**：Zustand store（服务注入模式）
 
 ```typescript
 interface DriftStore {
   // 分支状态
-  branches: Map<string, Branch>
-  activeBranchId: string
-  tree: BranchTreeNode
+  branches: Record<string, Branch>
+  activeBranchId: string | null
+  tree: BranchTreeNode | null
 
   // 消息状态
-  messagesByBranch: Map<string, Message[]>
+  messagesByBranch: Record<string, Message[]>
 
   // Agent 状态
   globalMap: GlobalMap | null
-  observations: Map<string, Observation[]>
+  observations: Record<string, Observation[]>
   profile: UserProfile | null
 
   // UI 状态
-  autoForkNotice: { branchId: string; forkRecordId: string } | null
-  convergencePanelOpen: boolean
-  searchQuery: string
+  autoForkNotice: AutoForkNoticeData | null
+  convergenceResult: Deliverable | null
+  convergenceLoading: boolean
+  convergenceError: string | null
+  quickPeekBranchId: string | null
+  loadingBranches: Set<string>
+  errorByBranch: Record<string, string>
+  rightPanelVisible: boolean        // 默认 true
+  rightPanelWidth: number           // 默认 400px, min 320 / max 50vw
 
   // Actions
   switchBranch(id: string): void
-  sendMessage(content: string): void
+  sendMessage(branchId: string, content: string): void
   undoFork(): void
   mergeBranches(sourceId: string, targetId: string): void
   moveMessage(messageId: string, targetBranchId: string): void
+  renameBranch(branchId: string, newLabel: string): void
+  archiveBranch(branchId: string): void
   requestConvergence(branchIds: string[], format: OutputFormat): void
+  dismissAutoForkNotice(): void
+  toggleRightPanel(): void
+  setRightPanelWidth(width: number): void
+}
+
+interface AutoForkNoticeData {
+  branchId: string
+  parentBranchId: string
+  forkRecordId: string
+  label: string
 }
 ```
 
@@ -317,7 +338,6 @@ interface BranchTreeNode {
   label: string
   status: BranchStatus
   children: BranchTreeNode[]
-  correlations?: Array<{ targetId: string; relationship: string }>
 }
 
 /** Fork 记录（undo 栈） */
@@ -330,69 +350,98 @@ interface ForkRecord {
   auto: boolean
 }
 
-/** Observation (T1) */
+/** 分支进展阶段 */
+type BranchStage = 'exploring' | 'deepening' | 'concluding' | 'exhausted'
+
+/** Observation — 分支上下文摘要（ObserverAgent 输出） */
 interface Observation {
   id: string
   branchId: string
-  topics: string[]
-  facts: string[]
-  decisions: string[]
-  openQuestions: string[]
-  currentTask: string
+  topic: string                 // 一句话概括分支在讨论什么
+  stage: BranchStage            // 进展阶段
+  keyPoints: string[]           // 已确认的关键结论（最多 5 条）
+  openQuestions: string[]       // 待解问题（最多 3 条）
+  directionSignal: string       // 走向信号
   messageRange: [number, number]
   timestamp: string
   tokenCount: number
 }
 
-/** GlobalMap (T2) */
+/** GlobalMap — 全局对话地图（SynthesizerAgent 输出） */
 interface GlobalMap {
-  branchSummaries: BranchSummary[]
-  crossBranchInsights: CrossBranchInsight[]
-  navigationHints: NavigationHint[]
-  overallProgress: string
+  overallTheme: {
+    mainTopics: string[]
+    sideTopics: string[]
+  }
+  branchLandscape: {
+    summaries: BranchSummary[]
+    relations: BranchRelation[]
+  }
+  crossThemeConnections: CrossThemeConnection[]
+  explorationCoverage: {
+    wellExplored: string[]
+    justStarted: string[]
+    blindSpots: string[]
+  }
+  convergenceReadiness: {
+    status: ConvergenceReadiness   // 'not_ready' | 'partially_ready' | 'ready'
+    reason: string
+  }
+  navigationSuggestions: NavigationSuggestion[]
   timestamp: string
 }
 
 interface BranchSummary {
   branchId: string
   topicSentence: string
-  relationToParent: string
-  relationToRoot: string
-  status: 'exploring' | 'converging' | 'concluded'
+  stage: BranchStage
+  role: string                  // 该分支在整体对话中的角色
 }
 
-interface CrossBranchInsight {
+interface BranchRelation {
+  branchIdA: string
+  branchIdB: string
+  types: BranchRelationType[]
+}
+
+type BranchRelationType =
+  | 'complementary' | 'competing' | 'progressive'
+  | 'derived' | 'contradictory' | 'supporting' | 'independent'
+
+interface CrossThemeConnection {
   branchIds: string[]
-  insight: string
+  nature: string                // 关联的性质
+  significance: string          // 为什么值得关注
 }
 
-interface NavigationHint {
-  fromBranchId: string
-  toBranchId: string
-  reason: string
-  relevance: number
-  trigger: 'topic_overlap' | 'open_question_answered' | 'contradiction' | 'dependency'
+type NavigationAction = 'deep_dive' | 'new_direction' | 'jump' | 'converge'
+
+interface NavigationSuggestion {
+  action: NavigationAction
+  target: string
+  reasoning: string
 }
 
-/** UserProfile */
+/** UserProfile — 用户画像（ProfileAgent 输出） */
 interface UserProfile {
-  thinkingStyle: 'divergent-first' | 'linear' | 'jumping'
-  topicSwitchFrequency: 'high' | 'medium' | 'low'
-  preferredOutputFormat: OutputFormat
-  autoForkTolerance: number
-  detailLevel: 'concise' | 'detailed'
-  intentDetectorSensitivity: number
-  observerDebounceSec: number
-  forkCooldownTurns: number
-  domainExpertise: Record<string, 'expert' | 'intermediate' | 'novice'>
+  thinkingStyle: { type: ThinkingStyle; description: string }
+  depthPreference: { type: DepthPreference; description: string }
+  interactionPattern: { type: InteractionPattern; description: string }
+  focusAreas: Array<{ topic: string; level: 'high' | 'medium' | 'low' }>
+  responsePreference: ResponsePreference
+  confidenceLevel: ProfileConfidence
   lastUpdated: string
-  sessionCount: number
-  insights: string[]
 }
 
-type OutputFormat = 'outline' | 'comparison' | 'decision-matrix' | 'checklist' | 'prose' | 'custom'
+type ThinkingStyle = 'divergent' | 'convergent' | 'balanced'
+type DepthPreference = 'surface' | 'moderate' | 'deep'
+type InteractionPattern = 'questioner' | 'challenger' | 'collaborator' | 'director'
+type ResponsePreference = 'concise' | 'detailed' | 'structured' | 'conversational'
+type ProfileConfidence = 'provisional' | 'developing' | 'stable'
 
-/** Deliverable (T3) */
+type OutputFormat = 'outline' | 'structured-summary' | 'comparison' | 'decision-matrix' | 'full-report' | 'custom'
+
+/** Deliverable（收敛输出） */
 interface Deliverable {
   id: string
   branchIds: string[]
@@ -400,6 +449,15 @@ interface Deliverable {
   content: string
   observationsUsed: string[]
   timestamp: string
+}
+
+/** IntentResult（IntentDetector 规则引擎输出） */
+interface IntentResult {
+  intent: IntentType            // 'continue' | 'fork' | 'backtrack'
+  confidence: IntentConfidence  // 'high' | 'medium' | 'low'
+  forkLabel?: string
+  backtrackHint?: string
+  reasoning: string
 }
 
 /** LLM 适配器 */
@@ -428,28 +486,29 @@ interface LLMOptions {
 ```
 用户输入
   │
-  ├──→ IntentDetector.detect(message, currentBranch T1 topics)
+  ├──→ IntentDetector.detect(message, branchContext?)
   │      │
-  │      ├─ drift → ForkManager.fork(currentBranch, lastMessage, { auto: true })
+  │      ├─ fork → ForkManager.fork(currentBranch, lastMessage, { auto: true })
   │      │          → emit('branch:created') + emit('fork:created')
   │      │          → UI: AutoForkNotice
   │      │
-  │      └─ no drift → continue in current branch
+  │      ├─ backtrack → UI: 提示用户可能想返回之前的话题
+  │      │
+  │      └─ continue → 留在当前分支
   │
   ├──→ MessageStore.append(message) → emit('message:appended')
   │
-  ├──→ LLMRouter.chat(context) → MessageStore.append(response)
+  ├──→ LLM.chat(context) → MessageStore.append(response)
   │
   └──→ AgentScheduler.handleEvent('message:appended')
          │
-         ├─ [token threshold?] → Observer.run(branchId)
-         │                         → ObservationStorage.append()
-         │                         → emit('observation:created')
+         ├─ Observer.run(branchId)
+         │    → ObservationStorage.append()
+         │    → AgentScheduler emit('observation:created')
          │
-         └─ [observation event] → Synthesizer.run(allObservations, tree)
-                                    → GlobalMapStorage.put()
-                                    → emit('globalmap:updated')
-                                    → push insights to branches
+         └─ [observation event, debounce 30s] → Synthesizer.run()
+              → GlobalMapStorage.put()
+              → AgentScheduler emit('globalmap:updated')
 
 用户编辑操作
   │
@@ -468,7 +527,7 @@ interface LLMOptions {
 用户收敛
   │
   └─ ConvergenceEngine.generate(branchIds, format)
-       → 读 T1 observations + GlobalMap
+       → 读 observations + GlobalMap
        → LLM 生成交付物
        → DeliverableStorage.save()
 ```
@@ -482,14 +541,11 @@ interface LLMOptions {
 | 语言 | TypeScript (strict) |
 | 包管理 | pnpm monorepo |
 | 前端 | React 19 + Zustand + TailwindCSS |
-| 树可视化 | React Flow 或 D3.js |
-| 拖拽 | dnd-kit |
-| 后端/运行时 | Node.js |
-| 存储 | better-sqlite3 (本地) |
-| LLM | OpenAI SDK / Anthropic SDK (通过 LLMAdapter) |
+| 网络图可视化 | D3-force（力导向图） |
+| 存储 | IndexedDB（浏览器端持久化） |
+| LLM | OpenAI Compatible / Anthropic SDK（通过 LLMAdapter） |
 | 测试 | Vitest |
-| 构建 | tsup (ESM + CJS) |
-| Token 估算 | tiktoken / tokenx |
+| 构建 | tsup (ESM + CJS + DTS) |
 
 ---
 
@@ -499,10 +555,13 @@ interface LLMOptions {
 new_project/
 ├── docs/
 │   ├── PRD.md
-│   └── architecture.md
+│   ├── architecture.md
+│   ├── agent-system-prompts.md
+│   └── drift-design-system.md
 ├── package.json
 ├── pnpm-workspace.yaml
 ├── tsconfig.base.json
+├── vitest.config.ts
 │
 ├── packages/
 │   ├── drift-storage/
@@ -511,10 +570,10 @@ new_project/
 │   │   └── src/
 │   │       ├── index.ts
 │   │       ├── types/
-│   │       │   └── storage.ts          # DriftStorage 接口定义
+│   │       │   └── storage.ts          # DriftStorage 接口 + 所有数据类型定义
 │   │       └── adapters/
-│   │           ├── in-memory.ts        # InMemoryAdapter
-│   │           └── sqlite.ts           # SQLiteAdapter
+│   │           ├── in-memory.ts        # InMemoryAdapter（测试用）
+│   │           └── indexeddb.ts        # IndexedDBAdapter（浏览器持久化）
 │   │
 │   ├── drift-core/
 │   │   ├── package.json
@@ -522,53 +581,65 @@ new_project/
 │   │   └── src/
 │   │       ├── index.ts
 │   │       ├── types/
-│   │       │   └── index.ts            # Message, Branch, ForkRecord 等类型
+│   │       │   └── index.ts            # DriftEvent, LLMAdapter, ForkOptions 等类型
 │   │       ├── branch/
 │   │       │   └── branch-manager.ts   # BranchManager
 │   │       ├── message/
 │   │       │   └── message-store.ts    # MessageStore
 │   │       ├── fork/
-│   │       │   └── fork-manager.ts     # ForkManager (fork/undo/merge/move)
+│   │       │   └── fork-manager.ts     # ForkManager (fork/undo/merge)
 │   │       ├── event/
 │   │       │   └── event-bus.ts        # EventBus
 │   │       └── llm/
 │   │           ├── llm-router.ts       # LLMRouter
-│   │           └── token-counter.ts    # TokenCounter
+│   │           ├── token-counter.ts    # TokenCounter
+│   │           ├── openai-compatible-adapter.ts  # OpenAI Compatible 适配器
+│   │           └── anthropic-adapter.ts          # Anthropic 适配器
 │   │
 │   ├── drift-agents/
 │   │   ├── package.json
 │   │   ├── tsconfig.json
 │   │   └── src/
 │   │       ├── index.ts
+│   │       ├── types/
+│   │       │   └── index.ts            # IntentResult, AgentTask, BehaviorSignals
 │   │       ├── observer/
-│   │       │   └── observer-agent.ts
+│   │       │   └── observer-agent.ts   # ObserverAgent (BranchContext)
 │   │       ├── synthesizer/
-│   │       │   └── synthesizer-agent.ts
+│   │       │   └── synthesizer-agent.ts # SynthesizerAgent (ContextKeeper)
 │   │       ├── profile/
-│   │       │   └── profile-agent.ts
+│   │       │   └── profile-agent.ts    # ProfileAgent
 │   │       ├── intent-detector/
-│   │       │   └── intent-detector.ts
+│   │       │   └── intent-detector.ts  # IntentDetector（规则引擎，无 LLM）
 │   │       ├── convergence/
-│   │       │   └── convergence-engine.ts
-│   │       └── scheduler/
-│   │           └── agent-scheduler.ts
+│   │       │   └── convergence-engine.ts # ConvergenceEngine
+│   │       ├── scheduler/
+│   │       │   └── agent-scheduler.ts  # AgentScheduler（优先级队列）
+│   │       └── __tests__/
+│   │           ├── observer-agent.test.ts
+│   │           └── intent-detector.test.ts
 │   │
 │   └── drift-ui/
 │       ├── package.json
 │       ├── tsconfig.json
+│       ├── vite.config.ts
 │       └── src/
 │           ├── index.ts
+│           ├── main.tsx                # 入口：初始化服务 + 挂载 React
+│           ├── App.tsx                 # 根布局：左侧图 + 右侧面板
 │           ├── store/
-│           │   └── drift-store.ts      # Zustand store
+│           │   └── drift-store.ts      # Zustand store + 服务注入
 │           ├── hooks/
 │           │   ├── use-branch.ts
 │           │   ├── use-messages.ts
 │           │   └── use-navigation.ts
 │           └── components/
-│               ├── tree/
-│               │   └── TreeCanvas.tsx
+│               ├── graph/
+│               │   └── NetworkGraph.tsx      # D3-force 力导向网络图
+│               ├── panel/
+│               │   ├── ConversationPanel.tsx  # 右侧对话面板
+│               │   └── ResizeHandle.tsx       # 面板宽度拖拽手柄
 │               ├── branch-panel/
-│               │   ├── BranchPanel.tsx
 │               │   ├── MessageList.tsx
 │               │   ├── ChatInput.tsx
 │               │   ├── AutoForkNotice.tsx

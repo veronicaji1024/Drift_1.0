@@ -10,11 +10,11 @@ export function useMessages(branchId: string): Message[] {
   return useDriftStore((s) => s.messagesByBranch[branchId] ?? EMPTY_MESSAGES)
 }
 
-/** 获取分支的回归面包屑 — 返回最近一次 observation 的 currentTask */
+/** 获取分支的回归面包屑 — 返回最近一次 observation 的 topic */
 export function useReEntryBreadcrumb(branchId: string): string | null {
   return useDriftStore((s) => {
     const obs = s.observations[branchId]
     if (!obs || obs.length === 0) return null
-    return obs[obs.length - 1].currentTask || null
+    return obs[obs.length - 1].topic || null
   })
 }

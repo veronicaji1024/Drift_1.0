@@ -1,17 +1,15 @@
 /** 导航相关的自定义 hooks */
 import { useMemo } from 'react'
 import { useDriftStore } from '../store/drift-store'
-import type { NavigationHint, Observation } from '@drift/storage'
+import type { NavigationSuggestion, Observation } from '@drift/storage'
 
-/** 获取指向/来自当前分支的导航提示 */
-export function useNavigationHints(branchId: string): NavigationHint[] {
+/** 获取当前全局导航建议 */
+export function useNavigationSuggestions(): NavigationSuggestion[] {
   const globalMap = useDriftStore((s) => s.globalMap)
   return useMemo(() => {
     if (!globalMap) return []
-    return globalMap.navigationHints.filter(
-      (h) => h.fromBranchId === branchId || h.toBranchId === branchId
-    )
-  }, [globalMap, branchId])
+    return globalMap.navigationSuggestions
+  }, [globalMap])
 }
 
 /** 搜索结果条目 */
@@ -39,38 +37,36 @@ export function useSearchResults(query: string): SearchResult[] {
       const label = branch?.label ?? branchId
 
       for (const obs of branchObs) {
-        // 搜索 topics
-        for (const topic of obs.topics) {
-          if (topic.toLowerCase().includes(lowerQuery)) {
-            results.push({
-              branchId,
-              branchLabel: label,
-              observation: obs,
-              matchedField: 'topics',
-              matchedText: topic,
-            })
-          }
-        }
-        // 搜索 facts
-        for (const fact of obs.facts) {
-          if (fact.toLowerCase().includes(lowerQuery)) {
-            results.push({
-              branchId,
-              branchLabel: label,
-              observation: obs,
-              matchedField: 'facts',
-              matchedText: fact,
-            })
-          }
-        }
-        // 搜索 currentTask
-        if (obs.currentTask && obs.currentTask.toLowerCase().includes(lowerQuery)) {
+        // 搜索 topic
+        if (obs.topic && obs.topic.toLowerCase().includes(lowerQuery)) {
           results.push({
             branchId,
             branchLabel: label,
             observation: obs,
-            matchedField: 'currentTask',
-            matchedText: obs.currentTask,
+            matchedField: 'topic',
+            matchedText: obs.topic,
+          })
+        }
+        // 搜索 keyPoints
+        for (const point of obs.keyPoints) {
+          if (point.toLowerCase().includes(lowerQuery)) {
+            results.push({
+              branchId,
+              branchLabel: label,
+              observation: obs,
+              matchedField: 'keyPoints',
+              matchedText: point,
+            })
+          }
+        }
+        // 搜索 directionSignal
+        if (obs.directionSignal && obs.directionSignal.toLowerCase().includes(lowerQuery)) {
+          results.push({
+            branchId,
+            branchLabel: label,
+            observation: obs,
+            matchedField: 'directionSignal',
+            matchedText: obs.directionSignal,
           })
         }
         // 搜索 openQuestions

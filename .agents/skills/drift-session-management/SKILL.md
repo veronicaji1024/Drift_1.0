@@ -42,8 +42,8 @@ created → active ←→ idle → archived
   ← 消费后清除（一次性注入）
 
 [T1 observations 摘要]（如有）
-  ← 当前分支的最新 observation 的 currentTask
-  ← 帮助 LLM 知道"我们在讨论什么"
+  ← 当前分支的最新 observation 的 topic/stage/keyPoints/openQuestions
+  ← 帮助 LLM 知道"我们在讨论什么、进展到哪里"
 
 [T0 recent messages]
   ← 当前分支的原始消息历史

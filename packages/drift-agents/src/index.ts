@@ -12,6 +12,7 @@ export { ProfileAgent } from './profile/profile-agent.js'
 export { IntentDetector } from './intent-detector/intent-detector.js'
 export { ConvergenceEngine } from './convergence/convergence-engine.js'
 export { AgentScheduler } from './scheduler/agent-scheduler.js'
+export type { AgentSchedulerDeps } from './scheduler/agent-scheduler.js'
 
 // ─── Types ───
-export type { BehaviorSignals, IntentResult, AgentTask } from './types/index.js'
+export type { BehaviorSignals, IntentResult, AgentTask, IntentType, IntentConfidence } from './types/index.js'

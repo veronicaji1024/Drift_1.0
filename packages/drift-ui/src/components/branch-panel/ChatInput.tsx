@@ -1,7 +1,7 @@
 /** 聊天输入框 — 文字输入 + 导航建议浮层 */
-import { useState, useCallback, type KeyboardEvent } from 'react'
+import { useState, useCallback, useEffect, useRef, type KeyboardEvent } from 'react'
 import { useDriftStore } from '../../store/drift-store'
-import { useNavigationHints } from '../../hooks/use-navigation'
+import { useNavigationSuggestions } from '../../hooks/use-navigation'
 
 /** 聊天输入属性 */
 interface ChatInputProps {
@@ -11,16 +11,29 @@ interface ChatInputProps {
 /** 聊天输入组件 */
 export function ChatInput({ branchId }: ChatInputProps) {
   const [input, setInput] = useState('')
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const sendMessage = useDriftStore((s) => s.sendMessage)
   const switchBranch = useDriftStore((s) => s.switchBranch)
+  const setDraft = useDriftStore((s) => s.setDraft)
   const isLoading = useDriftStore((s) => s.loadingBranches.has(branchId))
-  const navigationHints = useNavigationHints(branchId)
-  const branches = useDriftStore((s) => s.branches)
+  const userAvatar = useDriftStore((s) => s.userAvatar)
+  const navigationSuggestions = useNavigationSuggestions()
 
-  // 取相关度最高的导航建议
-  const topHint = navigationHints.length > 0
-    ? navigationHints.reduce((best, h) => (h.relevance > best.relevance ? h : best))
-    : null
+  useEffect(() => {
+    textareaRef.current?.focus()
+  }, [branchId, userAvatar])
+
+  useEffect(() => {
+    if (!isLoading) textareaRef.current?.focus()
+  }, [isLoading])
+
+  const handleInputChange = (value: string) => {
+    setInput(value)
+    setDraft(branchId, value)
+  }
+
+  // 取第一条导航建议
+  const topSuggestion = navigationSuggestions.length > 0 ? navigationSuggestions[0] : null
 
   /** 发送消息到指定分支 */
   const handleSend = useCallback(() => {
@@ -28,6 +41,7 @@ export function ChatInput({ branchId }: ChatInputProps) {
     if (!trimmed || isLoading) return
     void sendMessage(branchId, trimmed)
     setInput('')
+    setDraft(branchId, '')
   }, [input, sendMessage, branchId, isLoading])
 
   /** 按 Enter 发送 */
@@ -41,35 +55,26 @@ export function ChatInput({ branchId }: ChatInputProps) {
     [handleSend]
   )
 
-  /** 获取导航目标分支名称 */
-  const getHintTargetLabel = (toBranchId: string): string => {
-    return branches[toBranchId]?.label ?? toBranchId
-  }
-
   return (
     <div className="border-t border-gray-200 bg-white/80 backdrop-blur-sm">
       {/* 导航建议浮层 */}
-      {topHint && (
+      {topSuggestion && (
         <div className="mx-3 mt-2 px-3 py-1.5 bg-amber-50 border border-amber-100 rounded-lg flex items-center gap-2 text-xs">
           <span className="text-amber-500">&#x2192;</span>
           <span className="text-amber-700 flex-1 truncate">
-            {topHint.reason}
+            {topSuggestion.reasoning}
             <span className="text-amber-500 ml-1">
-              ({getHintTargetLabel(topHint.toBranchId)})
+              ({topSuggestion.action}: {topSuggestion.target})
             </span>
           </span>
-          <button
-            className="text-xs text-amber-600 hover:text-amber-800 font-medium flex-shrink-0"
-            onClick={() => switchBranch(topHint.toBranchId)}
-          >
-            跳转
-          </button>
         </div>
       )}
 
       {/* 输入区域 */}
       <div className="p-3 flex gap-2 items-end">
         <textarea
+          ref={textareaRef}
+          autoFocus
           className="
             flex-1 resize-none rounded-lg border border-gray-300 px-3 py-2
             text-sm text-gray-800 placeholder-gray-400
@@ -80,7 +85,7 @@ export function ChatInput({ branchId }: ChatInputProps) {
           placeholder={isLoading ? 'AI 正在回复...' : '输入消息...'}
           rows={1}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => handleInputChange(e.target.value)}
           onKeyDown={handleKeyDown}
           disabled={isLoading}
         />

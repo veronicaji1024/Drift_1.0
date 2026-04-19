@@ -7,11 +7,21 @@ export type {
   Branch,
   BranchTreeNode,
   ForkRecord,
+  BranchStage,
   Observation,
   BranchSummary,
-  CrossBranchInsight,
-  NavigationHint,
+  BranchRelationType,
+  BranchRelation,
+  CrossThemeConnection,
+  NavigationAction,
+  NavigationSuggestion,
+  ConvergenceReadiness,
   GlobalMap,
+  ThinkingStyle,
+  DepthPreference,
+  InteractionPattern,
+  ResponsePreference,
+  ProfileConfidence,
   OutputFormat,
   UserProfile,
   Deliverable,
@@ -29,3 +39,4 @@ export type {
 } from './types/storage.js'
 
 export { InMemoryAdapter } from './adapters/in-memory.js'
+export { IndexedDBAdapter } from './adapters/indexeddb.js'

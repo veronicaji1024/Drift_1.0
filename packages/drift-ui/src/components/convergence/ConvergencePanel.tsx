@@ -6,10 +6,10 @@ import type { OutputFormat } from '@drift/storage'
 /** 输出格式选项 */
 const FORMAT_OPTIONS: Array<{ value: OutputFormat; label: string; description: string }> = [
   { value: 'outline', label: '大纲', description: '层次化要点提炼' },
+  { value: 'structured-summary', label: '结构化摘要', description: '按主题分类的摘要' },
   { value: 'comparison', label: '对比表', description: '多方案横向对比' },
   { value: 'decision-matrix', label: '决策矩阵', description: '带权重的评分矩阵' },
-  { value: 'checklist', label: '清单', description: '可执行的待办列表' },
-  { value: 'prose', label: '自由摘要', description: '连贯的文字总结' },
+  { value: 'full-report', label: '完整报告', description: '含背景、分析和结论的完整文档' },
   { value: 'custom', label: '自定义', description: '自由指定输出模板' },
 ]
 
@@ -21,11 +21,12 @@ export function ConvergencePanel() {
   const activeBranchId = useDriftStore((s) => s.activeBranchId)
   const globalMap = useDriftStore((s) => s.globalMap)
   const requestConvergence = useDriftStore((s) => s.requestConvergence)
+  const convergenceResult = useDriftStore((s) => s.convergenceResult)
+  const isGenerating = useDriftStore((s) => s.convergenceLoading)
+  const convergenceError = useDriftStore((s) => s.convergenceError)
 
   const [selectedBranches, setSelectedBranches] = useState<Set<string>>(new Set())
   const [selectedFormat, setSelectedFormat] = useState<OutputFormat>('outline')
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [result, setResult] = useState<string | null>(null)
 
   // 可选的分支列表（排除已归档）
   const selectableBranches = useMemo(
@@ -40,7 +41,7 @@ export function ConvergencePanel() {
 
     // 添加 GlobalMap 中相关的分支
     if (globalMap) {
-      for (const insight of globalMap.crossBranchInsights) {
+      for (const insight of globalMap.crossThemeConnections) {
         if (insight.branchIds.includes(activeBranchId)) {
           insight.branchIds.forEach((id) => initial.add(id))
         }
@@ -64,26 +65,17 @@ export function ConvergencePanel() {
   }, [])
 
   /** 生成交付物 */
-  const handleGenerate = useCallback(async () => {
+  const handleGenerate = useCallback(() => {
     if (selectedBranches.size === 0) return
-    setIsGenerating(true)
-    setResult(null)
-
-    try {
-      await requestConvergence(Array.from(selectedBranches), selectedFormat)
-      // 结果会通过事件更新到 store，这里模拟一个简单提示
-      setResult('交付物生成中，请稍候...')
-    } finally {
-      setIsGenerating(false)
-    }
+    void requestConvergence(Array.from(selectedBranches), selectedFormat)
   }, [selectedBranches, selectedFormat, requestConvergence])
 
   /** 复制结果到剪贴板 */
   const handleCopy = useCallback(() => {
-    if (result) {
-      void navigator.clipboard.writeText(result)
+    if (convergenceResult) {
+      void navigator.clipboard.writeText(convergenceResult.content)
     }
-  }, [result])
+  }, [convergenceResult])
 
   if (!convergencePanelOpen) return null
 
@@ -166,8 +158,15 @@ export function ConvergencePanel() {
           {isGenerating ? '生成中...' : '生成交付物'}
         </button>
 
+        {/* 错误提示 */}
+        {convergenceError && (
+          <div className="px-3 py-2 bg-red-50 border border-red-100 rounded-lg text-sm text-red-600">
+            {convergenceError}
+          </div>
+        )}
+
         {/* 结果展示 */}
-        {result && (
+        {convergenceResult && (
           <div className="border border-gray-200 rounded-lg">
             <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
               <span className="text-xs font-medium text-gray-500">生成结果</span>
@@ -181,7 +180,7 @@ export function ConvergencePanel() {
               </div>
             </div>
             <div className="px-3 py-2 text-sm text-gray-700 whitespace-pre-wrap max-h-60 overflow-y-auto">
-              {result}
+              {convergenceResult.content}
             </div>
           </div>
         )}

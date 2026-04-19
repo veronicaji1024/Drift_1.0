@@ -409,8 +409,8 @@ absolute bottom-4 left-4 text-xs text-gray-400 pointer-events-none select-none
 
 ### 当前状态
 
-- **非响应式**：固定全屏画布，面板 380px 固定宽度
-- **最小视口**：面板需要至少 400px 宽度
+- **非响应式**：固定全屏画布，面板默认 400px 宽度（min 320px / max 50vw，可拖拽调节）
+- **最小视口**：面板需要至少 320px 宽度
 
 ### 可访问性
 
@@ -433,7 +433,8 @@ absolute bottom-4 left-4 text-xs text-gray-400 pointer-events-none select-none
 | `components/branch-panel/MessageList.tsx` | `MessageList` | 消息列表 + Loading + Error |
 | `components/branch-panel/ChatInput.tsx` | `ChatInput` | 输入框 + 发送按钮 |
 | `components/branch-panel/AutoForkNotice.tsx` | `AutoForkNotice` | 自动分支通知 |
-| `components/branch-panel/InlineInsight.tsx` | `InlineInsightList` | 跨分支洞察提示 |
+| `components/branch-panel/InlineInsight.tsx` | `InlineInsightList` | 跨主题关联提示 |
+| `components/branch-panel/ReEntryBreadcrumb.tsx` | `ReEntryBreadcrumb` | 回归面包屑（上次进展提示） |
 | `components/convergence/ConvergencePanel.tsx` | `ConvergencePanel` | 收敛输出面板 |
 | `components/navigation/SearchPanel.tsx` | `SearchPanel` | 全局搜索覆盖层 |
 | `components/navigation/QuickPeek.tsx` | `QuickPeek` | 分支快速预览 |

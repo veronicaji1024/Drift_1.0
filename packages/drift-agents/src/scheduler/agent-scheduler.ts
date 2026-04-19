@@ -1,5 +1,7 @@
 import type { DriftEvent, EventBus } from '@drift/core'
 import type { AgentTask } from '../types/index.js'
+import type { ObserverAgent } from '../observer/observer-agent.js'
+import type { SynthesizerAgent } from '../synthesizer/synthesizer-agent.js'
 
 /** 优先级权重映射 */
 const PRIORITY_WEIGHT: Record<AgentTask['priority'], number> = {
@@ -14,10 +16,17 @@ const PRIORITY_WEIGHT: Record<AgentTask['priority'], number> = {
  * 监听 EventBus 事件，按优先级队列调度 agent 任务。
  * 所有任务 fire-and-forget，不阻塞用户对话。
  */
+/** Agent 注入配置 */
+export interface AgentSchedulerDeps {
+  observer?: ObserverAgent
+  synthesizer?: SynthesizerAgent
+}
+
 export class AgentScheduler {
   private eventBus: EventBus
   private queue: AgentTask[] = []
   private running = false
+  private deps: AgentSchedulerDeps = {}
 
   /** 每种 agent 的防抖定时器 */
   private debounceTimers: Map<string, ReturnType<typeof setTimeout>> = new Map()
@@ -27,6 +36,11 @@ export class AgentScheduler {
 
   constructor(eventBus: EventBus) {
     this.eventBus = eventBus
+  }
+
+  /** 注入实际的 agent 实例 */
+  injectAgents(deps: AgentSchedulerDeps): void {
+    this.deps = { ...this.deps, ...deps }
   }
 
   /** 将任务加入调度队列 */
@@ -141,29 +155,38 @@ export class AgentScheduler {
 
   // ─── 内部方法 ───
 
-  /** 发出 Observer 调度任务（外部需注入实际 run 函数） */
+  /** 发出 Observer 调度任务 */
   private emitObserverTask(branchId: string, priority: AgentTask['priority']): void {
-    // 这里只入队一个占位任务；实际使用时，上层会通过 schedule() 注入带 run 的完整任务
-    // 为了让 handleEvent 能独立工作，我们用 schedule 发出事件
+    const observer = this.deps.observer
     this.schedule({
       agent: 'observer',
       priority,
       branchId,
       run: async () => {
-        // 空实现 — 实际 run 由上层在 schedule() 时注入
-        console.warn(`[AgentScheduler] Observer task for branch ${branchId} has no run implementation`)
+        if (!observer) {
+          console.warn(`[AgentScheduler] Observer 未注入，跳过 branch ${branchId}`)
+          return
+        }
+        const observation = await observer.run(branchId)
+        this.eventBus.emit({ type: 'observation:created', observation })
       },
     })
   }
 
   /** 发出 Synthesizer 调度任务 */
   private emitSynthesizerTask(): void {
+    const synthesizer = this.deps.synthesizer
     this.schedule({
       agent: 'synthesizer',
       priority: 'medium',
       debounceMs: 30_000,
       run: async () => {
-        console.warn('[AgentScheduler] Synthesizer task has no run implementation')
+        if (!synthesizer) {
+          console.warn('[AgentScheduler] Synthesizer 未注入，跳过')
+          return
+        }
+        const globalMap = await synthesizer.run()
+        this.eventBus.emit({ type: 'globalmap:updated', globalMap })
       },
     })
   }

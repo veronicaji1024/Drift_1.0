@@ -6,6 +6,7 @@ import { MessageList } from '../branch-panel/MessageList'
 import { ChatInput } from '../branch-panel/ChatInput'
 import { AutoForkNotice } from '../branch-panel/AutoForkNotice'
 import { InlineInsightList } from '../branch-panel/InlineInsight'
+import { ReEntryBreadcrumb } from '../branch-panel/ReEntryBreadcrumb'
 
 interface ConversationPanelProps {
   width: number
@@ -19,10 +20,6 @@ export function ConversationPanel({ width, visible, onToggle }: ConversationPane
   const isLoading = useDriftStore((s) =>
     s.activeBranchId ? s.loadingBranches.has(s.activeBranchId) : false
   )
-  const error = useDriftStore((s) =>
-    s.activeBranchId ? s.errorByBranch[s.activeBranchId] : undefined
-  )
-
   /** 自动滚动到底部 */
   const messagesEndRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -79,6 +76,9 @@ export function ConversationPanel({ width, visible, onToggle }: ConversationPane
             <>
               {/* 自动 fork 提示 */}
               <AutoForkNotice sourceBranchId={activeBranchId} />
+
+              {/* 回归面包屑 */}
+              <ReEntryBreadcrumb branchId={activeBranchId} />
 
               {/* 消息列表 */}
               <div className="flex-1 overflow-hidden flex flex-col min-h-0">
